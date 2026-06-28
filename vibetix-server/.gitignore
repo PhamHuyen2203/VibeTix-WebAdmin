@@ -1,0 +1,12 @@
+# Node
+**/node_modules/
+
+# Angular
+**/.angular/
+**/dist/
+
+# VSCode
+.vscode/
+
+# Firebase
+firebase-debug.log
