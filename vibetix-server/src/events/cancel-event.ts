@@ -22,13 +22,13 @@ export const cancelEvent = onCall(
       throw new HttpsError('not-found', 'Event not found.');
     }
 
-    const prev = snap.data()!['status'];
+    const prev = snap.data()!['status_str'];
     if (prev === 'cancelled') {
       throw new HttpsError('failed-precondition', 'Event is already cancelled.');
     }
 
     await ref.update({
-      status: 'cancelled',
+      status_str: 'cancelled',
       cancellationReason: reason.trim(),
       cancelledAt: new Date(),
       cancelledBy: admin.uid,

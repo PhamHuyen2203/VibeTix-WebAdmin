@@ -22,14 +22,10 @@ export const featureEvent = onCall(
       throw new HttpsError('not-found', 'Event not found.');
     }
 
-    const prevFeatured = snap.data()!['featured'] || false;
-    const prevStatus = snap.data()!['status'];
-
-    const newStatus = featured ? 'featured' : (prevStatus === 'featured' ? 'approved' : prevStatus);
+    const prevFeatured = snap.data()!['is_featured'] || false;
 
     await ref.update({
-      featured,
-      status: newStatus,
+      is_featured: featured,
       featuredAt: featured ? new Date() : null,
       featuredBy: featured ? admin.uid : null,
     });
@@ -40,7 +36,7 @@ export const featureEvent = onCall(
       'event.feature',
       'event',
       eventId,
-      { previousFeatured: prevFeatured, featured, newStatus },
+      { previousFeatured: prevFeatured, featured },
     );
 
     return { success: true };

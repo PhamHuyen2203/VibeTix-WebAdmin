@@ -12,11 +12,11 @@
         <p class="page-subtitle">View, manage, and control user accounts across the platform.</p>
       </div>
       <div class="flex gap-2">
-        <button class="btn btn-ghost btn-sm">
+        <button class="btn btn-ghost btn-sm" (click)="refreshAll()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 102.13-9.36L1 10"></path></svg>
           Reset
         </button>
-        <button class="btn btn-primary btn-sm">
+        <button class="btn btn-primary btn-sm" (click)="openAddModal()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           Add User
         </button>
@@ -69,19 +69,34 @@
         (input)="applyFilters()"
       />
     </div>
-    <select class="form-control" style="width:130px;height:36px;" [(ngModel)]="filterRole" (change)="applyFilters()" id="filter-role">
-      <option value="">All Roles</option>
-      <option value="user">User</option>
-      <option value="organizer">Organizer</option>
-      <option value="admin">Admin</option>
-    </select>
     <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="filterStatus" (change)="applyFilters()" id="filter-status">
       <option value="">All Statuses</option>
       <option value="active">Active</option>
       <option value="suspended">Suspended</option>
       <option value="disabled">Disabled</option>
     </select>
-    <button class="btn btn-ghost btn-sm" style="margin-left:auto;">
+    <select class="form-control" style="width:130px;height:36px;" [(ngModel)]="filterRole" (change)="applyFilters()" id="filter-role">
+      <option value="">All Roles</option>
+      <option value="customer">Customer</option>
+      <option value="organizer">Organizer</option>
+    </select>
+    <div style="position:relative; display:flex; align-items:center; gap:8px;">
+      <span style="font-size:12px; color:var(--color-text-secondary); font-weight:500;">Min Spent:</span>
+      <input
+        type="number"
+        class="form-control"
+        style="width:90px; height:36px; padding:6px 10px;"
+        placeholder="0"
+        [(ngModel)]="minSpent"
+        (input)="applyFilters()"
+        min="0"
+      />
+    </div>
+    <button class="btn btn-outline btn-sm" style="margin-left:auto; height:36px; display:flex; align-items:center;" (click)="resetFilters()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M23 4v6h-6M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path></svg>
+      Reset Filters
+    </button>
+    <button class="btn btn-ghost btn-sm" (click)="triggerPrint()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
       Export
     </button>
@@ -90,17 +105,15 @@
   <!-- Table -->
   <div class="card" style="padding:0;overflow:hidden;">
     <div class="table-header-row">
-      <span class="table-count">Users ({{ totalCount().toLocaleString() }})</span>
-      <div class="pagination-info">1–10 of {{ totalCount().toLocaleString() }}</div>
+      <span class="table-count">Users ({{ filteredUsers().length }})</span>
+      <div class="pagination-info">Showing {{ getPageStart() }}–{{ getPageEnd() }} of {{ filteredUsers().length }}</div>
     </div>
     <div class="table-container" style="border:none;border-radius:0;box-shadow:none;">
       <table class="table">
         <thead>
           <tr>
             <th>Avatar</th>
-            <th class="sortable">Full Name ↕</th>
-            <th>Email</th>
-            <th>Role / Type</th>
+            <th class="sortable">Full Name & Email ↕</th>
             <th>Phone</th>
             <th>Status</th>
             <th class="sortable">Join Date ↕</th>
@@ -113,13 +126,13 @@
           @if (loading()) {
             @for (i of [1,2,3,4,5,6,7,8,9,10]; track i) {
               <tr>
-                @for (j of [1,2,3,4,5,6,7,8,9,10]; track j) {
+                @for (j of [1,2,3,4,5,6,7,8,9]; track j) {
                   <td><div class="skeleton" style="height:14px;width:80%;border-radius:4px;"></div></td>
                 }
               </tr>
             }
           } @else {
-            @for (user of users(); track user.uid) {
+            @for (user of paginatedUsers(); track user.uid) {
               <tr>
                 <td>
                   @if (user.photoURL) {
@@ -132,8 +145,6 @@
                   <p class="font-semibold text-sm">{{ user.displayName }}</p>
                   <p class="text-xs text-muted">{{ user.email }}</p>
                 </td>
-                <td class="text-sm">{{ user.email }}</td>
-                <td><span class="badge" [class]="getRoleClass(user.role)">{{ user.role | titlecase }}</span></td>
                 <td class="text-sm">{{ user.phoneNumber ?? '—' }}</td>
                 <td><span class="badge" [class]="getStatusClass(user.status)">{{ user.status | titlecase }}</span></td>
                 <td class="text-sm text-muted">{{ formatDate(user.createdAt) }}</td>
@@ -141,9 +152,11 @@
                 <td class="font-semibold text-sm">${{ (user.totalSpent ?? 0).toFixed(2) }}</td>
                 <td>
                   <div class="action-row">
-                    <button class="btn btn-ghost btn-sm" title="View">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <button class="btn btn-ghost btn-sm" title="View" (click)="viewDetails(user)">
                       View
+                    </button>
+                    <button class="btn btn-ghost btn-sm" title="Edit" (click)="openEditModal(user)">
+                      Edit
                     </button>
                     <button
                       class="btn btn-sm"
@@ -161,13 +174,21 @@
                       (click)="resetPassword(user)"
                       title="Reset password"
                     >Reset</button>
+                    <button
+                      class="btn btn-ghost btn-sm text-error"
+                      [disabled]="actionLoading() === user.uid + '_delete'"
+                      (click)="deleteUser(user)"
+                      title="Delete User"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </td>
               </tr>
             }
-            @if (users().length === 0) {
+            @if (paginatedUsers().length === 0) {
               <tr>
-                <td colspan="10" style="text-align:center;padding:40px;color:var(--color-text-muted);">
+                <td colspan="9" style="text-align:center;padding:40px;color:var(--color-text-muted);">
                   No users found matching your filters.
                 </td>
               </tr>
@@ -179,24 +200,161 @@
     <!-- Pagination -->
     <div class="table-footer">
       <div class="pagination">
-        <button class="pagination-btn" disabled>‹</button>
-        <button class="pagination-btn active">1</button>
-        <button class="pagination-btn">2</button>
-        <button class="pagination-btn">3</button>
-        <button class="pagination-btn">4</button>
-        <button class="pagination-btn">5</button>
-        <span style="padding:0 4px;color:var(--color-text-muted);">...</span>
-        <button class="pagination-btn">1,246</button>
-        <button class="pagination-btn">›</button>
+        <button class="pagination-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">‹</button>
+        @for (p of getPagesArray(); track p) {
+          <button class="pagination-btn" [class.active]="currentPage() === p" (click)="changePage(p)">{{ p }}</button>
+        }
+        <button class="pagination-btn" [disabled]="currentPage() === totalPages()" (click)="changePage(currentPage() + 1)">›</button>
       </div>
       <div class="rows-per-page">
         Rows per page
-        <select class="form-control" style="width:70px;height:30px;font-size:12px;">
-          <option>10</option>
-          <option>25</option>
-          <option>50</option>
+        <select class="form-control" style="width:70px;height:30px;font-size:12px;padding:2px 8px;" [ngModel]="pageSize()" (change)="changePageSize(+$any($event.target).value)">
+          <option [value]="20">20</option>
+          <option [value]="50">50</option>
+          <option [value]="100">100</option>
         </select>
       </div>
     </div>
   </div>
+
+  <!-- Add User Modal -->
+  @if (addModalOpen()) {
+    <div class="modal-overlay">
+      <div class="modal" style="max-width:440px;">
+        <div class="modal-header">
+          <h3 class="modal-title">Add New User</h3>
+          <button class="btn-icon" (click)="addModalOpen.set(false)">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group mb-3">
+            <label>Full Name</label>
+            <input type="text" class="form-control" placeholder="E.g. Nguyen Van A" [(ngModel)]="newUser.fullName" />
+          </div>
+          <div class="form-group mb-3">
+            <label>Email Address</label>
+            <input type="email" class="form-control" placeholder="E.g. user@example.com" [(ngModel)]="newUser.email" />
+          </div>
+          <div class="form-group mb-3">
+            <label>Password</label>
+            <input type="password" class="form-control" placeholder="Min 6 characters" [(ngModel)]="newUser.password" />
+          </div>
+          <div class="form-group mb-3">
+            <label>Phone Number</label>
+            <input type="text" class="form-control" placeholder="E.g. +84987654321" [(ngModel)]="newUser.phone" />
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex; justify-content:end; gap:8px;">
+          <button class="btn btn-outline" (click)="addModalOpen.set(false)">Cancel</button>
+          <button class="btn btn-primary" (click)="saveUser()">Create User</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Edit User Modal -->
+  @if (editModalOpen()) {
+    <div class="modal-overlay">
+      <div class="modal" style="max-width:440px;">
+        <div class="modal-header">
+          <h3 class="modal-title">Edit User Details</h3>
+          <button class="btn-icon" (click)="editModalOpen.set(false)">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group mb-3">
+            <label>Full Name</label>
+            <input type="text" class="form-control" [(ngModel)]="editUserForm.fullName" />
+          </div>
+          <div class="form-group mb-3">
+            <label>Email Address</label>
+            <input type="email" class="form-control" [(ngModel)]="editUserForm.email" />
+          </div>
+          <div class="form-group mb-3">
+            <label>Phone Number</label>
+            <input type="text" class="form-control" [(ngModel)]="editUserForm.phone" />
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex; justify-content:end; gap:8px;">
+          <button class="btn btn-outline" (click)="editModalOpen.set(false)">Cancel</button>
+          <button class="btn btn-primary" (click)="updateUser()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- View User Details Modal -->
+  @if (detailModalOpen()) {
+    <div class="modal-overlay">
+      <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+          <h3 class="modal-title">User Profile Details</h3>
+          <button class="btn-icon" (click)="detailModalOpen.set(false)">×</button>
+        </div>
+        <div class="modal-body">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+            <div>
+              <span class="text-xs text-muted">FULL NAME</span>
+              <p class="font-semibold">{{ selectedUser()?.displayName }}</p>
+            </div>
+            <div>
+              <span class="text-xs text-muted">ROLE</span>
+              <div>
+                <span class="badge" [class]="getRoleClass(selectedUser()?.role || 'user')">
+                  {{ selectedUser()?.role | titlecase }}
+                </span>
+              </div>
+            </div>
+            <div>
+              <span class="text-xs text-muted">EMAIL</span>
+              <p>{{ selectedUser()?.email }}</p>
+            </div>
+            <div>
+              <span class="text-xs text-muted">PHONE</span>
+              <p>{{ selectedUser()?.phoneNumber ?? '—' }}</p>
+            </div>
+            <div>
+              <span class="text-xs text-muted">STATUS</span>
+              <div>
+                <span class="badge" [class]="getStatusClass(selectedUser()?.status || 'inactive')">
+                  {{ selectedUser()?.status | titlecase }}
+                </span>
+              </div>
+            </div>
+            <div>
+              <span class="text-xs text-muted">JOIN DATE</span>
+              <p>{{ formatDate(selectedUser()?.createdAt) }}</p>
+            </div>
+            @if (selectedUser()?.organizerId) {
+              <div>
+                <span class="text-xs text-muted">ORGANIZER ID</span>
+                <p style="font-family:monospace; font-size:12px;">{{ selectedUser()?.organizerId }}</p>
+              </div>
+            }
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex; justify-content:end;">
+          <button class="btn btn-primary" (click)="detailModalOpen.set(false)">Close</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Delete User Confirm Modal -->
+  @if (showDeleteConfirmModal()) {
+    <div class="modal-overlay" (click)="showDeleteConfirmModal.set(false)">
+      <div class="modal" style="max-width:400px;" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h4 class="modal-title">Confirm Delete User</h4>
+          <button class="btn-icon" (click)="showDeleteConfirmModal.set(false)">×</button>
+        </div>
+        <div class="modal-body" style="padding-top:10px;">
+          <p>Are you sure you want to permanently delete user <strong>{{ userToDelete()?.displayName }}</strong>?</p>
+          <p class="text-xs text-muted" style="margin-top:10px;">This will permanently delete their Auth account and Firestore profile document. This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer" style="display:flex; justify-content:end; gap:8px;">
+          <button class="btn btn-ghost" (click)="showDeleteConfirmModal.set(false)">Cancel</button>
+          <button class="btn btn-danger" (click)="confirmDeleteUser()">Delete Permanently</button>
+        </div>
+      </div>
+    </div>
+  }
 </div>

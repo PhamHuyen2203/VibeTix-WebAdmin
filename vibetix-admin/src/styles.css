@@ -482,7 +482,44 @@ select.form-control {
   background: var(--bg-card);
   border-radius: var(--border-radius-md);
   border: 1px solid var(--border-color);
-  overflow: hidden;
+  max-height: 520px;
+  overflow: auto;
+}
+
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-card);
+  flex-wrap: nowrap;
+}
+
+.rows-per-page {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.action-row .btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .table {

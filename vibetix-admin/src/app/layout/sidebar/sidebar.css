@@ -30,9 +30,14 @@
   min-height: 60px;
 }
 
+.sidebar.collapsed .sidebar-logo {
+  justify-content: center;
+}
+
 .logo-img {
-  width: 32px;
-  height: 32px;
+  height: 28px;
+  width: auto;
+  max-width: 120px;
   object-fit: contain;
   flex-shrink: 0;
   filter: brightness(0) invert(1);

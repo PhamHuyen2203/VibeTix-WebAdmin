@@ -25,7 +25,7 @@ exports.setUserActive = (0, https_1.onCall)({ region: 'asia-southeast1' }, async
     }
     const newStatus = active ? 'active' : 'disabled';
     const prevStatus = userData['status'];
-    await ref.update({ status: newStatus, updatedAt: new Date() });
+    await ref.update({ is_active: active, status: newStatus, updatedAt: new Date() });
     await verifyAdmin_1.auth.updateUser(userId, { disabled: !active });
     await (0, audit_log_1.writeAuditLog)(adminUser.uid, adminUser.displayName, active ? 'user.enable' : 'user.disable', 'user', userId, { previousStatus: prevStatus, newStatus });
     return { success: true };

@@ -5,13 +5,14 @@
 export { getDashboardSummary } from './dashboard/get-dashboard-summary';
 
 // Organizers
-export { approveOrganizer, rejectOrganizer } from './organizers/review-organizer';
+export { approveOrganizer, rejectOrganizer, editOrganizer, deleteOrganizer, createOrganizer } from './organizers/review-organizer';
 export { suspendOrganizer } from './organizers/suspend-organizer';
 
 // Events
 export { approveEvent, rejectEvent } from './events/review-event';
 export { cancelEvent } from './events/cancel-event';
 export { featureEvent } from './events/set-event-featured';
+export { createEvent, editEvent, deleteEvent } from './events/eventCRUD';
 
 // Orders
 export { getOrderDetail } from './orders/get-order-detail';
@@ -28,4 +29,4 @@ export { updatePromotion } from './promotions/update-promotion';
 export { getUserDetail } from './users/get-user-detail';
 export { listUsers } from './users/list-users';
 export { setUserActive } from './users/set-user-active';
-export { updateUserStatus, resetUserPassword } from './users/userFunctions';
+export { updateUserStatus, resetUserPassword, createUser, editUser, deleteUser } from './users/userFunctions';

@@ -6,7 +6,32 @@
     <span class="breadcrumb-current">Overview</span>
   </div>
 
-  <!-- KPI Stat Cards -->
+  <!-- Platform Performance Overview (All-Time Reports) -->
+  @if (!loading() && stats()) {
+    <div style="margin-bottom:24px;">
+      <h3 style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--color-text-muted); margin-bottom:12px;">Platform Reports (All-Time)</h3>
+      <div class="stats-grid-3" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+        <div class="stat-card">
+          <p class="stat-card-label">Total Revenue (All-Time)</p>
+          <p class="stat-card-value" style="color:var(--color-primary);">{{ formatCurrency(stats()!.totalSalesAllTime) }}</p>
+          <div class="stat-card-trend text-muted" style="font-size:11px; margin-top:4px;">Gross sales invoice amount</div>
+        </div>
+        <div class="stat-card">
+          <p class="stat-card-label">Total Tickets Issued</p>
+          <p class="stat-card-value">{{ stats()!.totalTicketsAllTime.toLocaleString() }}</p>
+          <div class="stat-card-trend text-muted" style="font-size:11px; margin-top:4px;">Total valid/used tickets</div>
+        </div>
+        <div class="stat-card">
+          <p class="stat-card-label">Total Registrations</p>
+          <p class="stat-card-value">{{ stats()!.totalUsers.toLocaleString() }}</p>
+          <div class="stat-card-trend text-muted" style="font-size:11px; margin-top:4px;">Total registered customers</div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- KPI Stat Cards (30D) -->
+  <h3 style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--color-text-muted); margin-bottom:12px;">Monthly Activity (30D)</h3>
   @if (loading()) {
     <div class="stats-grid-6">
       @for (i of [1,2,3,4,5,6]; track i) {
@@ -143,17 +168,18 @@
         <div class="chart-container donut-container">
           <canvas #donutChart></canvas>
           <div class="donut-center-label">
-            <span class="donut-total">18,672</span>
+            <span class="donut-total">{{ stats()?.ticketsSold30d?.toLocaleString() ?? '0' }}</span>
             <span class="donut-total-label">Total</span>
           </div>
         </div>
         <div class="donut-legend">
-          <div class="legend-item"><span class="legend-dot" style="background:#226CEB"></span>Concerts<span class="legend-val">7,842 (42%)</span></div>
-          <div class="legend-item"><span class="legend-dot" style="background:#48C5E9"></span>Music Festivals<span class="legend-val">4,215 (22%)</span></div>
-          <div class="legend-item"><span class="legend-dot" style="background:#5FD788"></span>Sports<span class="legend-val">2,941 (16%)</span></div>
-          <div class="legend-item"><span class="legend-dot" style="background:#FFBB23"></span>Theatre<span class="legend-val">2,103 (11%)</span></div>
-          <div class="legend-item"><span class="legend-dot" style="background:#FF4848"></span>Comedy<span class="legend-val">1,245 (7%)</span></div>
-          <div class="legend-item"><span class="legend-dot" style="background:#DADADA"></span>Others<span class="legend-val">326 (2%)</span></div>
+          @for (c of stats()?.categoryStats; track c.category; let idx = $index) {
+            <div class="legend-item">
+              <span class="legend-dot" [style.background]="['#226CEB', '#48C5E9', '#5FD788', '#FFBB23', '#FF4848', '#DADADA'][idx] || '#DADADA'"></span>
+              {{ c.category }}
+              <span class="legend-val">{{ c.ticketsSold?.toLocaleString() }} ({{ c.percentage }}%)</span>
+            </div>
+          }
         </div>
       </div>
     </div>

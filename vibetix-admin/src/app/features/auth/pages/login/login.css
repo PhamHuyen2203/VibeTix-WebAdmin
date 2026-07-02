@@ -52,8 +52,9 @@
 }
 
 .logo {
-  width: 40px;
   height: 40px;
+  width: auto;
+  max-width: 200px;
   object-fit: contain;
 }
 
@@ -301,8 +302,9 @@
 }
 
 .form-logo {
-  width: 32px;
   height: 32px;
+  width: auto;
+  max-width: 150px;
   object-fit: contain;
   margin-bottom: 8px;
 }

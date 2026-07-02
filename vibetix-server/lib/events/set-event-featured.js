@@ -19,16 +19,13 @@ exports.featureEvent = (0, https_1.onCall)({ region: 'asia-southeast1' }, async 
     if (!snap.exists) {
         throw new https_1.HttpsError('not-found', 'Event not found.');
     }
-    const prevFeatured = snap.data()['featured'] || false;
-    const prevStatus = snap.data()['status'];
-    const newStatus = featured ? 'featured' : (prevStatus === 'featured' ? 'approved' : prevStatus);
+    const prevFeatured = snap.data()['is_featured'] || false;
     await ref.update({
-        featured,
-        status: newStatus,
+        is_featured: featured,
         featuredAt: featured ? new Date() : null,
         featuredBy: featured ? admin.uid : null,
     });
-    await (0, audit_log_1.writeAuditLog)(admin.uid, admin.displayName, 'event.feature', 'event', eventId, { previousFeatured: prevFeatured, featured, newStatus });
+    await (0, audit_log_1.writeAuditLog)(admin.uid, admin.displayName, 'event.feature', 'event', eventId, { previousFeatured: prevFeatured, featured });
     return { success: true };
 });
 exports.setEventFeatured = exports.featureEvent;

@@ -30,7 +30,7 @@ export const setUserActive = onCall(
     const newStatus = active ? 'active' : 'disabled';
     const prevStatus = userData['status'];
 
-    await ref.update({ status: newStatus, updatedAt: new Date() });
+    await ref.update({ is_active: active, status: newStatus, updatedAt: new Date() });
     await auth.updateUser(userId, { disabled: !active });
 
     await writeAuditLog(

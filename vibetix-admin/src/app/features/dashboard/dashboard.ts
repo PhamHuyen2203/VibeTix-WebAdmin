@@ -6,6 +6,7 @@ import {
   AfterViewInit,
   ElementRef,
   viewChild,
+  effect,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DashboardService } from '../../core/services/dashboard.service';
@@ -34,6 +35,27 @@ export class Dashboard implements OnInit, AfterViewInit {
 
   private revenueChart?: Chart;
   private donutChart?: Chart;
+
+  constructor() {
+    effect(() => {
+      const currentStats = this.stats();
+      if (currentStats && this.donutChart) {
+        const labels = currentStats.categoryStats.map((c) => c.category);
+        const data = currentStats.categoryStats.map((c) => c.ticketsSold);
+        const total = data.reduce((a, b) => a + b, 0);
+
+        this.donutChart.data.labels = labels;
+        if (total === 0) {
+          this.donutChart.data.datasets[0].data = [1, 1, 1, 1, 1];
+          this.donutChart.data.datasets[0].backgroundColor = ['#DADADA', '#DADADA', '#DADADA', '#DADADA', '#DADADA'];
+        } else {
+          this.donutChart.data.datasets[0].data = data;
+          this.donutChart.data.datasets[0].backgroundColor = ['#226CEB', '#48C5E9', '#5FD788', '#FFBB23', '#FF4848', '#DADADA'];
+        }
+        this.donutChart.update();
+      }
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     try {

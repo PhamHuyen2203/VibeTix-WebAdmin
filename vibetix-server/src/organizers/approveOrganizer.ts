@@ -21,14 +21,14 @@ export const approveOrganizer = onCall(
     }
 
     // 4. Enforce allowed state transition
-    const currentStatus = orgSnap.data()!['status'];
-    if (currentStatus === 'verified') {
+    const isVerified = orgSnap.data()!['is_verified'] || false;
+    if (isVerified) {
       throw new HttpsError('failed-precondition', 'Organizer is already verified.');
     }
 
     // 5. Apply the state change
     await orgRef.update({
-      status: 'verified',
+      is_verified: true,
       verifiedAt: new Date(),
       verifiedBy: admin.uid,
       rejectionReason: null,
@@ -41,7 +41,7 @@ export const approveOrganizer = onCall(
       'organizer.approve',
       'organizer',
       organizerId,
-      { previousStatus: currentStatus },
+      { previousStatus: isVerified ? 'verified' : 'pending' },
     );
 
     // 7. Return typed response

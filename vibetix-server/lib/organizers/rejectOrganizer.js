@@ -15,17 +15,15 @@ exports.rejectOrganizer = (0, https_1.onCall)({ region: 'asia-southeast1' }, asy
     const orgSnap = await orgRef.get();
     if (!orgSnap.exists)
         throw new https_1.HttpsError('not-found', 'Organizer not found.');
-    const currentStatus = orgSnap.data()['status'];
-    if (currentStatus === 'rejected')
-        throw new https_1.HttpsError('failed-precondition', 'Organizer is already rejected.');
+    const isVerified = orgSnap.data()['is_verified'] || false;
     await orgRef.update({
-        status: 'rejected',
+        is_verified: false,
         rejectionReason: reason.trim(),
         rejectedAt: new Date(),
         rejectedBy: admin.uid,
     });
     await (0, verifyAdmin_1.writeAuditLog)(admin.uid, admin.displayName, 'organizer.reject', 'organizer', organizerId, {
-        previousStatus: currentStatus,
+        previousStatus: isVerified ? 'verified' : 'pending',
         reason: reason.trim(),
     });
     return { success: true };

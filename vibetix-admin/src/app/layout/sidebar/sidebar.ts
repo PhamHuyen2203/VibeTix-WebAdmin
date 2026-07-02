@@ -45,7 +45,6 @@ export class Sidebar {
     { label: 'Tickets', icon: 'ticket', route: '/tickets' },
     { label: 'Payments', icon: 'credit-card', route: '/payments' },
     { label: 'Promotions', icon: 'tag', route: '/promotions' },
-    { label: 'Reports', icon: 'bar-chart', route: '/reports' },
     { label: 'Settings', icon: 'settings', route: '/settings' },
   ];
 

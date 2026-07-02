@@ -16,16 +16,17 @@ exports.approveEvent = (0, https_1.onCall)({ region: 'asia-southeast1' }, async 
     if (!snap.exists) {
         throw new https_1.HttpsError('not-found', 'Event not found.');
     }
-    const prev = snap.data()['status'];
-    if (prev === 'approved') {
-        throw new https_1.HttpsError('failed-precondition', 'Event is already approved.');
+    const prev = snap.data()['status_str'];
+    if (prev !== 'pending') {
+        throw new https_1.HttpsError('failed-precondition', `Event is in ${prev} state, cannot be approved.`);
     }
     await ref.update({
-        status: 'approved',
+        status_str: 'approved',
         approvedAt: new Date(),
         approvedBy: admin.uid,
-        rejectionReason: null,
+        rejectionReason: null, // Clear any previous rejection
     });
+    // 4. Log Audit
     await (0, audit_log_1.writeAuditLog)(admin.uid, admin.displayName, 'event.approve', 'event', eventId, { previousStatus: prev });
     return { success: true };
 });
@@ -43,12 +44,12 @@ exports.rejectEvent = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (
     if (!snap.exists) {
         throw new https_1.HttpsError('not-found', 'Event not found.');
     }
-    const prev = snap.data()['status'];
+    const prev = snap.data()['status_str'];
     if (prev === 'rejected') {
         throw new https_1.HttpsError('failed-precondition', 'Event is already rejected.');
     }
     await ref.update({
-        status: 'rejected',
+        status_str: 'rejected',
         rejectionReason: reason.trim(),
         rejectedAt: new Date(),
         rejectedBy: admin.uid,

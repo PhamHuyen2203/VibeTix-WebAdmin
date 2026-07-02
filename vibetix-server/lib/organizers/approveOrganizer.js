@@ -18,19 +18,19 @@ exports.approveOrganizer = (0, https_1.onCall)({ region: 'asia-southeast1' }, as
         throw new https_1.HttpsError('not-found', 'Organizer not found.');
     }
     // 4. Enforce allowed state transition
-    const currentStatus = orgSnap.data()['status'];
-    if (currentStatus === 'verified') {
+    const isVerified = orgSnap.data()['is_verified'] || false;
+    if (isVerified) {
         throw new https_1.HttpsError('failed-precondition', 'Organizer is already verified.');
     }
     // 5. Apply the state change
     await orgRef.update({
-        status: 'verified',
+        is_verified: true,
         verifiedAt: new Date(),
         verifiedBy: admin.uid,
         rejectionReason: null,
     });
     // 6. Write audit log
-    await (0, verifyAdmin_1.writeAuditLog)(admin.uid, admin.displayName, 'organizer.approve', 'organizer', organizerId, { previousStatus: currentStatus });
+    await (0, verifyAdmin_1.writeAuditLog)(admin.uid, admin.displayName, 'organizer.approve', 'organizer', organizerId, { previousStatus: isVerified ? 'verified' : 'pending' });
     // 7. Return typed response
     return { success: true };
 });

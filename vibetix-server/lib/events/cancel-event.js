@@ -19,12 +19,12 @@ exports.cancelEvent = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (
     if (!snap.exists) {
         throw new https_1.HttpsError('not-found', 'Event not found.');
     }
-    const prev = snap.data()['status'];
+    const prev = snap.data()['status_str'];
     if (prev === 'cancelled') {
         throw new https_1.HttpsError('failed-precondition', 'Event is already cancelled.');
     }
     await ref.update({
-        status: 'cancelled',
+        status_str: 'cancelled',
         cancellationReason: reason.trim(),
         cancelledAt: new Date(),
         cancelledBy: admin.uid,

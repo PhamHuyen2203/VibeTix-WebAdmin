@@ -19,25 +19,26 @@ export const approveEvent = onCall(
       throw new HttpsError('not-found', 'Event not found.');
     }
 
-    const prev = snap.data()!['status'];
-    if (prev === 'approved') {
-      throw new HttpsError('failed-precondition', 'Event is already approved.');
+    const prev = snap.data()!['status_str'];
+    if (prev !== 'pending') {
+      throw new HttpsError('failed-precondition', `Event is in ${prev} state, cannot be approved.`);
     }
 
     await ref.update({
-      status: 'approved',
+      status_str: 'approved',
       approvedAt: new Date(),
       approvedBy: admin.uid,
-      rejectionReason: null,
+      rejectionReason: null, // Clear any previous rejection
     });
 
+    // 4. Log Audit
     await writeAuditLog(
       admin.uid,
       admin.displayName,
       'event.approve',
       'event',
       eventId,
-      { previousStatus: prev },
+      { previousStatus: prev }
     );
 
     return { success: true };
@@ -63,13 +64,13 @@ export const rejectEvent = onCall(
       throw new HttpsError('not-found', 'Event not found.');
     }
 
-    const prev = snap.data()!['status'];
+    const prev = snap.data()!['status_str'];
     if (prev === 'rejected') {
       throw new HttpsError('failed-precondition', 'Event is already rejected.');
     }
 
     await ref.update({
-      status: 'rejected',
+      status_str: 'rejected',
       rejectionReason: reason.trim(),
       rejectedAt: new Date(),
       rejectedBy: admin.uid,

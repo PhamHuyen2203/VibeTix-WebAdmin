@@ -47,6 +47,36 @@ export class AdminFunctions {
     );
   }
 
+  editOrganizer(payload: {
+    organizerId: string;
+    brandName?: string;
+    logoUrl?: string;
+    description?: string;
+    websiteUrl?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+  }) {
+    return this.call<typeof payload, { success: boolean }>('editOrganizer', payload);
+  }
+
+  deleteOrganizer(organizerId: string) {
+    return this.call<{ organizerId: string }, { success: boolean }>('deleteOrganizer', {
+      organizerId,
+    });
+  }
+
+  createOrganizer(payload: {
+    brandName: string;
+    contactEmail: string;
+    contactPhone?: string;
+    description?: string;
+    websiteUrl?: string;
+    logoUrl?: string;
+    category?: string;
+  }) {
+    return this.call<typeof payload, { success: boolean; organizerId: string }>('createOrganizer', payload);
+  }
+
   // ─── Event Actions ────────────────────────────────────────────────
   approveEvent(eventId: string) {
     return this.call<{ eventId: string }, { success: boolean }>(
@@ -76,6 +106,39 @@ export class AdminFunctions {
     );
   }
 
+  createEvent(payload: {
+    title: string;
+    description?: string;
+    organizerId: string;
+    organizerName?: string;
+    categoryId?: string;
+    venueName?: string;
+    venueAddress?: string;
+    startTime?: string;
+    endTime?: string;
+    totalTickets?: number;
+  }) {
+    return this.call<typeof payload, { success: boolean; eventId: string }>('createEvent', payload);
+  }
+
+  editEvent(payload: {
+    eventId: string;
+    title?: string;
+    description?: string;
+    categoryId?: string;
+    venueName?: string;
+    venueAddress?: string;
+    startTime?: string;
+    endTime?: string;
+    totalTickets?: number;
+  }) {
+    return this.call<typeof payload, { success: boolean }>('editEvent', payload);
+  }
+
+  deleteEvent(eventId: string) {
+    return this.call<{ eventId: string }, { success: boolean }>('deleteEvent', { eventId });
+  }
+
   // ─── User Actions ─────────────────────────────────────────────────
   updateUserStatus(userId: string, status: 'active' | 'disabled' | 'suspended') {
     return this.call<{ userId: string; status: string }, { success: boolean }>(
@@ -88,6 +151,27 @@ export class AdminFunctions {
     return this.call<{ userId: string }, { success: boolean }>(
       'resetUserPassword',
       { userId },
+    );
+  }
+
+  createUser(payload: { email: string; password?: string; fullName: string; phone?: string; avatarUrl?: string }) {
+    return this.call<typeof payload, { success: boolean; userId: string }>(
+      'createUser',
+      payload
+    );
+  }
+
+  editUser(payload: { userId: string; email?: string; fullName?: string; phone?: string; avatarUrl?: string }) {
+    return this.call<typeof payload, { success: boolean }>(
+      'editUser',
+      payload
+    );
+  }
+
+  deleteUser(userId: string) {
+    return this.call<{ userId: string }, { success: boolean }>(
+      'deleteUser',
+      { userId }
     );
   }
 }

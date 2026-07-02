@@ -78,8 +78,8 @@ export const routes: Routes = [
       },
       {
         path: 'reports',
-        loadComponent: () =>
-          import('./features/reports/reports').then((m) => m.Reports),
+        redirectTo: 'dashboard',
+        pathMatch: 'full',
       },
       {
         path: 'settings',
