@@ -6,7 +6,7 @@ import {
   User,
   sendPasswordResetEmail,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { firebaseAuth, firebaseDb } from '../firebase/firebase.client';
 import { COLLECTIONS } from '../firebase/collections';
 
@@ -48,11 +48,8 @@ export class AuthService {
       }
 
       try {
-        const adminRef = doc(firebaseDb, COLLECTIONS.admins, user.uid);
-        const adminSnap = await getDoc(adminRef);
-
-        if (adminSnap.exists()) {
-          const data = adminSnap.data() as Omit<AdminProfile, 'uid'>;
+        const data = await this.getAdminData(user.uid);
+        if (data) {
           this.adminProfile.set({ uid: user.uid, ...data });
           this.isAdmin.set(true);
         } else {
@@ -69,6 +66,24 @@ export class AuthService {
     });
   }
 
+  private async getAdminData(uid: string): Promise<Omit<AdminProfile, 'uid'> | null> {
+    const adminsRef = collection(firebaseDb, COLLECTIONS.admins);
+    const q = query(adminsRef, where('user_id', '==', uid));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      return null;
+    }
+
+    const data = querySnapshot.docs[0].data();
+    return {
+      email: data['email'],
+      displayName: data['full_name'] || data['displayName'] || 'Admin',
+      role: (data['role'] === 'superadmin' ? 'superAdmin' : data['role']) as any,
+      createdAt: data['created_at']?.toDate() || data['createdAt']?.toDate() || new Date(),
+    };
+  }
+
   /** Awaitable promise that resolves once the initial auth state is known. */
   waitForAuthInit(): Promise<void> {
     return this.authInitPromise;
@@ -81,15 +96,13 @@ export class AuthService {
       password,
     );
 
-    const adminRef = doc(firebaseDb, COLLECTIONS.admins, credential.user.uid);
-    const adminSnap = await getDoc(adminRef);
+    const data = await this.getAdminData(credential.user.uid);
 
-    if (!adminSnap.exists()) {
+    if (!data) {
       await signOut(firebaseAuth);
       throw new Error('Tài khoản này không có quyền Admin.');
     }
 
-    const data = adminSnap.data() as Omit<AdminProfile, 'uid'>;
     this.currentUser.set(credential.user);
     this.adminProfile.set({ uid: credential.user.uid, ...data });
     this.isAdmin.set(true);
