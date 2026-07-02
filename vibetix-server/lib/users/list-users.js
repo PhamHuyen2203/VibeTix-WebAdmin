@@ -1,11 +1,14 @@
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { assertAdmin } from '../common/assert-admin';
-import { admin, db, COLLECTIONS } from '../auth/verifyAdmin';
-export const listUsers = onCall({ region: 'asia-southeast1' }, async (request) => {
-    await assertAdmin(request);
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.listUsers = void 0;
+const https_1 = require("firebase-functions/v2/https");
+const assert_admin_1 = require("../common/assert-admin");
+const verifyAdmin_1 = require("../auth/verifyAdmin");
+exports.listUsers = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (request) => {
+    await (0, assert_admin_1.assertAdmin)(request);
     const { role, status, limit = 20, lastUid } = request.data;
     try {
-        let query = db.collection(COLLECTIONS.users);
+        let query = verifyAdmin_1.db.collection(verifyAdmin_1.COLLECTIONS.users);
         if (role) {
             query = query.where('role', '==', role);
         }
@@ -14,7 +17,7 @@ export const listUsers = onCall({ region: 'asia-southeast1' }, async (request) =
         }
         query = query.orderBy('createdAt', 'desc');
         if (lastUid) {
-            const lastDoc = await db.collection(COLLECTIONS.users).doc(lastUid).get();
+            const lastDoc = await verifyAdmin_1.db.collection(verifyAdmin_1.COLLECTIONS.users).doc(lastUid).get();
             if (lastDoc.exists) {
                 query = query.startAfter(lastDoc);
             }
@@ -30,7 +33,7 @@ export const listUsers = onCall({ region: 'asia-southeast1' }, async (request) =
         };
     }
     catch (error) {
-        throw new HttpsError('internal', 'Failed to list users: ' + error.message);
+        throw new https_1.HttpsError('internal', 'Failed to list users: ' + error.message);
     }
 });
 //# sourceMappingURL=list-users.js.map

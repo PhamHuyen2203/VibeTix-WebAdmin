@@ -1,49 +1,52 @@
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { verifyAdmin, writeAuditLog, db, auth, COLLECTIONS } from '../auth/verifyAdmin';
-export const updateUserStatus = onCall({ region: 'asia-southeast1' }, async (request) => {
-    const adminUser = await verifyAdmin(request);
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.resetUserPassword = exports.updateUserStatus = void 0;
+const https_1 = require("firebase-functions/v2/https");
+const verifyAdmin_1 = require("../auth/verifyAdmin");
+exports.updateUserStatus = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (request) => {
+    const adminUser = await (0, verifyAdmin_1.verifyAdmin)(request);
     const { userId, status } = request.data;
     if (!userId)
-        throw new HttpsError('invalid-argument', 'userId is required.');
+        throw new https_1.HttpsError('invalid-argument', 'userId is required.');
     const allowedStatuses = ['active', 'disabled', 'suspended'];
     if (!status || !allowedStatuses.includes(status)) {
-        throw new HttpsError('invalid-argument', `status must be one of: ${allowedStatuses.join(', ')}.`);
+        throw new https_1.HttpsError('invalid-argument', `status must be one of: ${allowedStatuses.join(', ')}.`);
     }
     // Check user exists
-    const userDoc = await db.collection(COLLECTIONS.users).doc(userId).get();
+    const userDoc = await verifyAdmin_1.db.collection(verifyAdmin_1.COLLECTIONS.users).doc(userId).get();
     if (!userDoc.exists)
-        throw new HttpsError('not-found', 'User not found.');
+        throw new https_1.HttpsError('not-found', 'User not found.');
     // Prevent admins from disabling other admins (safety guardrail)
     const userData = userDoc.data();
     if (userData['role'] === 'admin' || userData['role'] === 'superAdmin') {
-        throw new HttpsError('permission-denied', 'Cannot change status of another admin account.');
+        throw new https_1.HttpsError('permission-denied', 'Cannot change status of another admin account.');
     }
     const prev = userData['status'];
     // Update Firestore
-    await db.collection(COLLECTIONS.users).doc(userId).update({ status, updatedAt: new Date() });
+    await verifyAdmin_1.db.collection(verifyAdmin_1.COLLECTIONS.users).doc(userId).update({ status, updatedAt: new Date() });
     // Also disable/enable in Firebase Auth
     if (status === 'disabled') {
-        await auth.updateUser(userId, { disabled: true });
+        await verifyAdmin_1.auth.updateUser(userId, { disabled: true });
     }
     else if (status === 'active') {
-        await auth.updateUser(userId, { disabled: false });
+        await verifyAdmin_1.auth.updateUser(userId, { disabled: false });
     }
-    await writeAuditLog(adminUser.uid, adminUser.displayName, `user.${status === 'disabled' ? 'disable' : status === 'suspended' ? 'suspend' : 'enable'}`, 'user', userId, { previousStatus: prev, newStatus: status });
+    await (0, verifyAdmin_1.writeAuditLog)(adminUser.uid, adminUser.displayName, `user.${status === 'disabled' ? 'disable' : status === 'suspended' ? 'suspend' : 'enable'}`, 'user', userId, { previousStatus: prev, newStatus: status });
     return { success: true };
 });
-export const resetUserPassword = onCall({ region: 'asia-southeast1' }, async (request) => {
-    const adminUser = await verifyAdmin(request);
+exports.resetUserPassword = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (request) => {
+    const adminUser = await (0, verifyAdmin_1.verifyAdmin)(request);
     const { userId } = request.data;
     if (!userId)
-        throw new HttpsError('invalid-argument', 'userId is required.');
-    const userRecord = await auth.getUser(userId).catch(() => {
-        throw new HttpsError('not-found', 'User not found in Firebase Auth.');
+        throw new https_1.HttpsError('invalid-argument', 'userId is required.');
+    const userRecord = await verifyAdmin_1.auth.getUser(userId).catch(() => {
+        throw new https_1.HttpsError('not-found', 'User not found in Firebase Auth.');
     });
     if (!userRecord.email)
-        throw new HttpsError('failed-precondition', 'User has no email address.');
-    await auth.generatePasswordResetLink(userRecord.email);
+        throw new https_1.HttpsError('failed-precondition', 'User has no email address.');
+    await verifyAdmin_1.auth.generatePasswordResetLink(userRecord.email);
     // In production: send via email service
-    await writeAuditLog(adminUser.uid, adminUser.displayName, 'user.reset_password', 'user', userId, { email: userRecord.email });
+    await (0, verifyAdmin_1.writeAuditLog)(adminUser.uid, adminUser.displayName, 'user.reset_password', 'user', userId, { email: userRecord.email });
     return { success: true };
 });
 //# sourceMappingURL=userFunctions.js.map

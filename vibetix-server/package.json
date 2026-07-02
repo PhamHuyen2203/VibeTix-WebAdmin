@@ -1,26 +1,32 @@
 {
   "name": "vibetix-server",
   "version": "1.0.0",
-  "description": "",
+  "description": "Firebase Cloud Functions backend for VibeTix WebAdmin",
+  "private": true,
   "main": "lib/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w",
-    "serve": "npm run build && firebase emulators:start --only functions",
-    "shell": "npm run build && firebase functions:shell",
-    "start": "npm run shell",
-    "deploy": "firebase deploy --only functions"
+    "clean": "node -e \"require('fs').rmSync('lib', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc",
+    "watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions --config ../firebase.json --project mobile-5f256",
+    "shell": "npm run build && firebase functions:shell --config ../firebase.json --project mobile-5f256",
+    "start": "npm run serve",
+    "deploy": "npm run build && firebase deploy --only functions --config ../firebase.json --project mobile-5f256",
+    "logs": "firebase functions:log --project mobile-5f256"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
     "firebase-admin": "^13.10.0",
     "firebase-functions": "^7.2.5"
   },
   "devDependencies": {
-    "@types/node": "^26.0.1",
+    "@types/node": "^22.0.0",
     "eslint": "^10.6.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"

@@ -1,27 +1,30 @@
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { assertAdmin } from '../common/assert-admin';
-import { db, COLLECTIONS } from '../auth/verifyAdmin';
-export const getDashboardSummary = onCall({ region: 'asia-southeast1' }, async (request) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getDashboardSummary = void 0;
+const https_1 = require("firebase-functions/v2/https");
+const assert_admin_1 = require("../common/assert-admin");
+const verifyAdmin_1 = require("../auth/verifyAdmin");
+exports.getDashboardSummary = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (request) => {
     // 1. Verify caller is an active admin
-    await assertAdmin(request);
+    await (0, assert_admin_1.assertAdmin)(request);
     try {
         // 2. Query counts
-        const usersSnap = await db.collection(COLLECTIONS.users).count().get();
-        const activeOrgsSnap = await db
-            .collection(COLLECTIONS.organizers)
+        const usersSnap = await verifyAdmin_1.db.collection(verifyAdmin_1.COLLECTIONS.users).count().get();
+        const activeOrgsSnap = await verifyAdmin_1.db
+            .collection(verifyAdmin_1.COLLECTIONS.organizers)
             .where('status', '==', 'verified')
             .count()
             .get();
-        const pendingEventsSnap = await db
-            .collection(COLLECTIONS.events)
+        const pendingEventsSnap = await verifyAdmin_1.db
+            .collection(verifyAdmin_1.COLLECTIONS.events)
             .where('status', '==', 'pending_review')
             .count()
             .get();
         // 3. Compute 30d stats from orders
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const ordersSnap = await db
-            .collection(COLLECTIONS.orders)
+        const ordersSnap = await verifyAdmin_1.db
+            .collection(verifyAdmin_1.COLLECTIONS.orders)
             .where('status', '==', 'completed')
             .where('createdAt', '>=', thirtyDaysAgo)
             .get();
@@ -33,8 +36,8 @@ export const getDashboardSummary = onCall({ region: 'asia-southeast1' }, async (
             ticketsSold30d += data['totalTickets'] || 0;
         });
         // Compute refunded orders to calculate refund rate
-        const refundedSnap = await db
-            .collection(COLLECTIONS.orders)
+        const refundedSnap = await verifyAdmin_1.db
+            .collection(verifyAdmin_1.COLLECTIONS.orders)
             .where('status', '==', 'refunded')
             .where('createdAt', '>=', thirtyDaysAgo)
             .count()
@@ -53,7 +56,7 @@ export const getDashboardSummary = onCall({ region: 'asia-southeast1' }, async (
         };
     }
     catch (error) {
-        throw new HttpsError('internal', 'Failed to retrieve dashboard summary: ' + error.message);
+        throw new https_1.HttpsError('internal', 'Failed to retrieve dashboard summary: ' + error.message);
     }
 });
 //# sourceMappingURL=get-dashboard-summary.js.map
