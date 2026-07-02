@@ -1,0 +1,276 @@
+<div class="page-wrapper" [class.has-panel]="selectedOrganizer()">
+  <!-- Header -->
+  <div>
+    <div class="breadcrumb">
+      <a href="/dashboard">Dashboard</a>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-current">Organizers</span>
+    </div>
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Organizer Management</h1>
+        <p class="page-subtitle">Review, verify, and manage organizer accounts and applications.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid-4">
+    <div class="stat-card">
+      <p class="stat-card-label">Pending Applications</p>
+      <p class="stat-card-value">{{ pendingCount() }}</p>
+      <div class="stat-card-trend up">↑ 16.7% vs last 30 days</div>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Verified Organizers</p>
+      <p class="stat-card-value">{{ verifiedCount().toLocaleString() }}</p>
+      <div class="stat-card-trend up">↑ 8.3% vs last 30 days</div>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Suspended Organizers</p>
+      <p class="stat-card-value">{{ suspendedCount() }}</p>
+      <div class="stat-card-trend down">↓ 5.3% vs last 30 days</div>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Organizer Revenue (30D)</p>
+      <p class="stat-card-value">$248,720</p>
+      <div class="stat-card-trend up">↑ 18.4% vs last 30 days</div>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <div style="position:relative;flex:1;max-width:300px;">
+      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--color-text-muted);display:flex;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </span>
+      <input type="search" class="form-control input-search" style="padding-left:34px;height:36px;" placeholder="Search organizers or owners..." id="org-search" [(ngModel)]="searchTerm" (input)="loadOrganizers()" />
+    </div>
+    <select class="form-control" style="width:130px;height:36px;" [(ngModel)]="filterStatus" (change)="loadOrganizers()" id="org-filter-status">
+      <option value="">Status: All</option>
+      <option value="pending">Pending</option>
+      <option value="verified">Verified</option>
+      <option value="suspended">Suspended</option>
+      <option value="rejected">Rejected</option>
+    </select>
+    <select class="form-control" style="width:150px;height:36px;" [(ngModel)]="filterCategory" (change)="loadOrganizers()" id="org-filter-category">
+      <option value="">Category: All</option>
+      <option value="Concerts">Concerts</option>
+      <option value="Music Festivals">Music Festivals</option>
+      <option value="Sports">Sports</option>
+      <option value="Theatre">Theatre</option>
+      <option value="Comedy">Comedy</option>
+      <option value="Conferences">Conferences</option>
+    </select>
+    <button class="btn btn-ghost btn-sm">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+      Filters
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="table-container" style="border:none;border-radius:0;box-shadow:none;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Organizer Name</th>
+            <th>Owner</th>
+            <th>Category</th>
+            <th>Contact</th>
+            <th>Submitted Date</th>
+            <th>Status</th>
+            <th>Documents</th>
+            <th>Events</th>
+            <th>Revenue</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (i of [1,2,3,4,5,6,7,8]; track i) {
+              <tr>
+                @for (j of [1,2,3,4,5,6,7,8,9,10]; track j) {
+                  <td><div class="skeleton" style="height:14px;width:80%;border-radius:4px;"></div></td>
+                }
+              </tr>
+            }
+          } @else {
+            @for (org of organizers(); track org.id) {
+              <tr (click)="selectOrganizer(org)" [class.selected]="selectedOrganizer()?.id === org.id" style="cursor:pointer;">
+                <td>
+                  <div class="flex items-center gap-2">
+                    <div class="org-avatar" [style.background]="'hsl(' + (org.businessName.charCodeAt(0) * 7 % 360) + ',60%,55%)'">
+                      {{ getInitials(org.businessName) }}
+                    </div>
+                    <div>
+                      <p class="font-semibold text-sm">{{ org.businessName }}</p>
+                      <p class="text-xs text-muted">{{ org.website ?? '' }}</p>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <p class="text-sm font-medium">{{ org.ownerName }}</p>
+                  <p class="text-xs text-muted">{{ org.email }}</p>
+                </td>
+                <td><span class="badge badge-primary">{{ org.category }}</span></td>
+                <td>
+                  <p class="text-sm">{{ org.phone }}</p>
+                  <p class="text-xs text-muted">{{ org.location }}</p>
+                </td>
+                <td class="text-sm text-muted">{{ formatDate(org.submittedAt) }}</td>
+                <td><span class="badge" [class]="getStatusClass(org.status)">{{ org.status | titlecase }}</span></td>
+                <td>
+                  <span class="text-sm">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;margin-right:2px;"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                    {{ docsVerified(org) }}/{{ org.documents?.length ?? 0 }}
+                  </span>
+                </td>
+                <td class="text-sm">{{ org.eventsCount }}</td>
+                <td class="font-semibold text-sm">${{ org.revenue30d.toLocaleString() }}</td>
+                <td>
+                  <button class="btn-icon" (click)="$event.stopPropagation()" aria-label="More">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                  </button>
+                </td>
+              </tr>
+            }
+            @if (organizers().length === 0) {
+              <tr>
+                <td colspan="10" style="text-align:center;padding:40px;color:var(--color-text-muted);">No organizers found.</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border-color);font-size:12px;color:var(--color-text-muted);">
+      Showing 1 to {{ organizers().length }} of {{ pendingCount() + verifiedCount() + suspendedCount() }} applications
+    </div>
+  </div>
+</div>
+
+<!-- Slide-in Detail Panel -->
+@if (selectedOrganizer()) {
+  <div class="panel-overlay" (click)="closeDetail()"></div>
+  <aside class="detail-panel">
+    <div class="panel-header">
+      <h3 class="panel-title">Organizer Application</h3>
+      <button class="btn-icon" (click)="closeDetail()" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+
+    <!-- Org Profile -->
+    <div class="panel-org-profile">
+      <div class="org-logo-big" [style.background]="'hsl(' + (selectedOrganizer()!.businessName.charCodeAt(0) * 7 % 360) + ',60%,55%)'">
+        {{ getInitials(selectedOrganizer()!.businessName) }}
+      </div>
+      <div class="org-profile-info">
+        <div class="flex items-center gap-2">
+          <h4 class="font-bold" style="font-size:15px;">{{ selectedOrganizer()!.businessName }}</h4>
+          <span class="badge" [class]="getStatusClass(selectedOrganizer()!.status)">{{ selectedOrganizer()!.status | titlecase }}</span>
+        </div>
+        @if (selectedOrganizer()!.website) {
+          <a [href]="selectedOrganizer()!.website" target="_blank" class="text-primary text-sm">{{ selectedOrganizer()!.website }}</a>
+        }
+        <p class="text-sm text-muted">{{ selectedOrganizer()!.ownerName }}</p>
+        <p class="text-sm text-muted">{{ selectedOrganizer()!.email }}</p>
+        <p class="text-sm text-muted">{{ selectedOrganizer()!.phone }}</p>
+      </div>
+    </div>
+
+    <!-- Business Info -->
+    <div class="panel-section">
+      <h5 class="panel-section-title">Business Information</h5>
+      <div class="info-grid">
+        <div class="info-row"><span class="info-label">Category</span><span class="badge badge-primary">{{ selectedOrganizer()!.category }}</span></div>
+        <div class="info-row"><span class="info-label">Location</span><span class="text-sm">{{ selectedOrganizer()!.location }}</span></div>
+      </div>
+      @if (selectedOrganizer()!.description) {
+        <p class="text-sm text-muted" style="margin-top:10px;line-height:1.6;">{{ selectedOrganizer()!.description }}</p>
+      }
+    </div>
+
+    <!-- Submitted Date -->
+    <div class="panel-section">
+      <div class="info-row">
+        <span class="info-label">Submitted Date</span>
+        <span class="text-sm">{{ formatDate(selectedOrganizer()!.submittedAt) }}</span>
+      </div>
+    </div>
+
+    <!-- Documents -->
+    <div class="panel-section">
+      <div class="flex items-center justify-between mb-2">
+        <h5 class="panel-section-title" style="margin:0;">Documents</h5>
+        <a class="text-primary text-xs font-medium">View all ({{ selectedOrganizer()!.documents?.length ?? 0 }})</a>
+      </div>
+      <div class="doc-list">
+        @for (doc of selectedOrganizer()!.documents ?? []; track doc.name) {
+          <div class="doc-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            <div class="doc-info">
+              <p class="text-sm font-medium">{{ doc.name }}</p>
+              <p class="text-xs text-muted">{{ doc.fileName }}</p>
+            </div>
+            <span class="badge badge-sm" [class]="getDocClass(doc.status)">{{ doc.status | titlecase }}</span>
+          </div>
+        }
+        @if (!selectedOrganizer()!.documents?.length) {
+          <p class="text-sm text-muted">No documents uploaded.</p>
+        }
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="panel-actions">
+      <button
+        class="btn btn-success btn-sm"
+        [disabled]="actionLoading() !== null || selectedOrganizer()!.status === 'verified'"
+        (click)="approve()"
+        id="btn-approve-org"
+      >
+        @if (actionLoading() === 'approve') { <span class="spinner-sm"></span> }
+        ✓ Approve
+      </button>
+      <button
+        class="btn btn-danger btn-sm"
+        [disabled]="actionLoading() !== null || selectedOrganizer()!.status === 'rejected'"
+        (click)="openRejectModal()"
+        id="btn-reject-org"
+      >✕ Reject</button>
+      <button
+        class="btn btn-warning btn-sm"
+        [disabled]="actionLoading() !== null || selectedOrganizer()!.status === 'suspended'"
+        (click)="suspend()"
+        id="btn-suspend-org"
+      >
+        @if (actionLoading() === 'suspend') { <span class="spinner-sm"></span> }
+        ⊘ Suspend
+      </button>
+    </div>
+  </aside>
+}
+
+<!-- Reject Modal -->
+@if (showRejectModal()) {
+  <div class="modal-overlay" (click)="showRejectModal.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h4 class="modal-title">Reject Organizer</h4>
+        <button class="btn-icon" (click)="showRejectModal.set(false)" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rejection Reason *</label>
+        <textarea class="form-control" rows="4" placeholder="Explain why this application is being rejected..." [value]="rejectReason()" (input)="rejectReason.set($any($event.target).value)" id="reject-reason"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="showRejectModal.set(false)">Cancel</button>
+        <button class="btn btn-danger" [disabled]="!rejectReason() || actionLoading() === 'reject'" (click)="confirmReject()">Confirm Rejection</button>
+      </div>
+    </div>
+  </div>
+}

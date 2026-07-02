@@ -1,0 +1,202 @@
+<div class="page-wrapper">
+  <!-- Page Header -->
+  <div>
+    <div class="breadcrumb">
+      <a href="/dashboard">Dashboard</a>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-current">Users</span>
+    </div>
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">User Management</h1>
+        <p class="page-subtitle">View, manage, and control user accounts across the platform.</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-ghost btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 102.13-9.36L1 10"></path></svg>
+          Reset
+        </button>
+        <button class="btn btn-primary btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Add User
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="stats-grid-5">
+    <div class="stat-card">
+      <p class="stat-card-label">Total Users</p>
+      <p class="stat-card-value">{{ totalCount().toLocaleString() }}</p>
+      <div class="stat-card-trend up">↑ 12.5% vs last 30 days</div>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Active Users</p>
+      <p class="stat-card-value">{{ activeCount().toLocaleString() }}</p>
+      <div class="stat-card-trend up">↑ 9.8% vs last 30 days</div>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Suspended Users</p>
+      <p class="stat-card-value">{{ suspendedCount() }}</p>
+      <div class="stat-card-trend down">↓ 5.2% vs last 30 days</div>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Organizer Accounts</p>
+      <p class="stat-card-value">{{ organizerCount().toLocaleString() }}</p>
+      <div class="stat-card-trend up">↑ 8.3% vs last 30 days</div>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">New Users (30D)</p>
+      <p class="stat-card-value">1,245</p>
+      <div class="stat-card-trend up">↑ 15.1% vs last 30 days</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <div class="form-control-icon" style="flex:1;max-width:300px;position:relative;">
+      <span class="icon-left" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;color:var(--color-text-muted);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </span>
+      <input
+        type="search"
+        class="form-control input-search"
+        style="padding-left:34px;height:36px;"
+        placeholder="Search by name, email or phone..."
+        id="user-search"
+        [(ngModel)]="searchTerm"
+        (input)="applyFilters()"
+      />
+    </div>
+    <select class="form-control" style="width:130px;height:36px;" [(ngModel)]="filterRole" (change)="applyFilters()" id="filter-role">
+      <option value="">All Roles</option>
+      <option value="user">User</option>
+      <option value="organizer">Organizer</option>
+      <option value="admin">Admin</option>
+    </select>
+    <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="filterStatus" (change)="applyFilters()" id="filter-status">
+      <option value="">All Statuses</option>
+      <option value="active">Active</option>
+      <option value="suspended">Suspended</option>
+      <option value="disabled">Disabled</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" style="margin-left:auto;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      Export
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="table-header-row">
+      <span class="table-count">Users ({{ totalCount().toLocaleString() }})</span>
+      <div class="pagination-info">1–10 of {{ totalCount().toLocaleString() }}</div>
+    </div>
+    <div class="table-container" style="border:none;border-radius:0;box-shadow:none;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Avatar</th>
+            <th class="sortable">Full Name ↕</th>
+            <th>Email</th>
+            <th>Role / Type</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th class="sortable">Join Date ↕</th>
+            <th>Orders</th>
+            <th>Total Spent</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (i of [1,2,3,4,5,6,7,8,9,10]; track i) {
+              <tr>
+                @for (j of [1,2,3,4,5,6,7,8,9,10]; track j) {
+                  <td><div class="skeleton" style="height:14px;width:80%;border-radius:4px;"></div></td>
+                }
+              </tr>
+            }
+          } @else {
+            @for (user of users(); track user.uid) {
+              <tr>
+                <td>
+                  @if (user.photoURL) {
+                    <img [src]="user.photoURL" [alt]="user.displayName" class="avatar avatar-sm" />
+                  } @else {
+                    <div class="avatar avatar-sm avatar-placeholder">{{ getInitials(user.displayName) }}</div>
+                  }
+                </td>
+                <td>
+                  <p class="font-semibold text-sm">{{ user.displayName }}</p>
+                  <p class="text-xs text-muted">{{ user.email }}</p>
+                </td>
+                <td class="text-sm">{{ user.email }}</td>
+                <td><span class="badge" [class]="getRoleClass(user.role)">{{ user.role | titlecase }}</span></td>
+                <td class="text-sm">{{ user.phoneNumber ?? '—' }}</td>
+                <td><span class="badge" [class]="getStatusClass(user.status)">{{ user.status | titlecase }}</span></td>
+                <td class="text-sm text-muted">{{ formatDate(user.createdAt) }}</td>
+                <td class="text-sm">{{ user.totalOrders ?? 0 }}</td>
+                <td class="font-semibold text-sm">${{ (user.totalSpent ?? 0).toFixed(2) }}</td>
+                <td>
+                  <div class="action-row">
+                    <button class="btn btn-ghost btn-sm" title="View">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      View
+                    </button>
+                    <button
+                      class="btn btn-sm"
+                      [class.btn-danger]="user.status === 'active'"
+                      [class.btn-success]="user.status !== 'active'"
+                      [disabled]="actionLoading() === user.uid"
+                      (click)="disableUser(user)"
+                      title="{{ user.status === 'active' ? 'Disable' : 'Enable' }}"
+                    >
+                      {{ user.status === 'active' ? 'Disable' : 'Enable' }}
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      [disabled]="actionLoading() === user.uid + '_reset'"
+                      (click)="resetPassword(user)"
+                      title="Reset password"
+                    >Reset</button>
+                  </div>
+                </td>
+              </tr>
+            }
+            @if (users().length === 0) {
+              <tr>
+                <td colspan="10" style="text-align:center;padding:40px;color:var(--color-text-muted);">
+                  No users found matching your filters.
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <!-- Pagination -->
+    <div class="table-footer">
+      <div class="pagination">
+        <button class="pagination-btn" disabled>‹</button>
+        <button class="pagination-btn active">1</button>
+        <button class="pagination-btn">2</button>
+        <button class="pagination-btn">3</button>
+        <button class="pagination-btn">4</button>
+        <button class="pagination-btn">5</button>
+        <span style="padding:0 4px;color:var(--color-text-muted);">...</span>
+        <button class="pagination-btn">1,246</button>
+        <button class="pagination-btn">›</button>
+      </div>
+      <div class="rows-per-page">
+        Rows per page
+        <select class="form-control" style="width:70px;height:30px;font-size:12px;">
+          <option>10</option>
+          <option>25</option>
+          <option>50</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>

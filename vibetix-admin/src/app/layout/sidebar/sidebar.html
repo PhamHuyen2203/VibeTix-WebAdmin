@@ -1,1 +1,53 @@
-<p>sidebar works!</p>
+<nav class="sidebar" [class.collapsed]="collapsed()">
+  <!-- Logo -->
+  <div class="sidebar-logo">
+    <img src="brand/logo-vibetix.png" alt="VibeTix" class="logo-img" />
+    @if (!collapsed()) {
+      <span class="logo-badge">WebAdmin</span>
+    }
+  </div>
+
+  <!-- Navigation -->
+  <div class="sidebar-nav">
+    @for (item of navItems; track item.route) {
+      <a
+        [routerLink]="item.route"
+        routerLinkActive="active"
+        class="nav-item"
+        [title]="collapsed() ? item.label : ''"
+      >
+        <span class="nav-icon" [innerHTML]="getIcon(item.icon)"></span>
+        @if (!collapsed()) {
+          <span class="nav-label">{{ item.label }}</span>
+        }
+      </a>
+    }
+  </div>
+
+  <!-- Pro Card -->
+  @if (!collapsed()) {
+    <div class="pro-card">
+      <div class="pro-card-content">
+        <p class="pro-title">VibeTix Pro</p>
+        <p class="pro-desc">Unlock advanced analytics, custom reports, and more.</p>
+      </div>
+      <button class="btn btn-primary btn-block btn-sm mt-2">Upgrade Now</button>
+    </div>
+  }
+
+  <!-- Footer: Collapse Toggle + Logout -->
+  <div class="sidebar-footer">
+    <button class="collapse-btn" (click)="toggleCollapse()" [title]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        @if (collapsed()) {
+          <polyline points="9 18 15 12 9 6"></polyline>
+        } @else {
+          <polyline points="15 18 9 12 15 6"></polyline>
+        }
+      </svg>
+      @if (!collapsed()) {
+        <span>Collapse</span>
+      }
+    </button>
+  </div>
+</nav>

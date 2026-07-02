@@ -1,0 +1,253 @@
+<div class="page-wrapper">
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <span>Dashboard</span>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-current">Overview</span>
+  </div>
+
+  <!-- KPI Stat Cards -->
+  @if (loading()) {
+    <div class="stats-grid-6">
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <div class="stat-card skeleton" style="height:100px;"></div>
+      }
+    </div>
+  } @else if (stats()) {
+    <div class="stats-grid-6">
+      <!-- Total Users -->
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div>
+            <p class="stat-card-label">Total Users</p>
+            <p class="stat-card-value">{{ stats()!.totalUsers.toLocaleString() }}</p>
+          </div>
+          <div class="stat-card-icon" style="background:rgba(34,108,235,0.10)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#226CEB" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 00-3-3.87"></path><path d="M16 3.13a4 4 0 010 7.75"></path></svg>
+          </div>
+        </div>
+        <div class="stat-card-trend up">↑ 12.5% <span class="text-muted font-medium"> vs last 30 days</span></div>
+        <div class="sparkline sparkline-blue"></div>
+      </div>
+
+      <!-- Active Organizers -->
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div>
+            <p class="stat-card-label">Active Organizers</p>
+            <p class="stat-card-value">{{ stats()!.activeOrganizers.toLocaleString() }}</p>
+          </div>
+          <div class="stat-card-icon" style="background:rgba(72,197,233,0.10)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#48C5E9" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+          </div>
+        </div>
+        <div class="stat-card-trend up">↑ 8.3% <span class="text-muted font-medium"> vs last 30 days</span></div>
+        <div class="sparkline sparkline-cyan"></div>
+      </div>
+
+      <!-- Pending Events -->
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div>
+            <p class="stat-card-label">Pending Events</p>
+            <p class="stat-card-value">{{ stats()!.pendingEvents }}</p>
+          </div>
+          <div class="stat-card-icon" style="background:rgba(226,185,59,0.10)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E2B93B" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          </div>
+        </div>
+        <div class="stat-card-trend up">↑ 16.7% <span class="text-muted font-medium"> vs last 30 days</span></div>
+        <div class="sparkline sparkline-yellow"></div>
+      </div>
+
+      <!-- Revenue -->
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div>
+            <p class="stat-card-label">Revenue (30D)</p>
+            <p class="stat-card-value">{{ formatCurrency(stats()!.revenue30d) }}</p>
+          </div>
+          <div class="stat-card-icon" style="background:rgba(95,215,136,0.10)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5FD788" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+          </div>
+        </div>
+        <div class="stat-card-trend up">↑ 18.4% <span class="text-muted font-medium"> vs last 30 days</span></div>
+        <div class="sparkline sparkline-green"></div>
+      </div>
+
+      <!-- Tickets Sold -->
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div>
+            <p class="stat-card-label">Tickets Sold (30D)</p>
+            <p class="stat-card-value">{{ stats()!.ticketsSold30d.toLocaleString() }}</p>
+          </div>
+          <div class="stat-card-icon" style="background:rgba(34,108,235,0.08)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#226CEB" stroke-width="2"><path d="M2 9a3 3 0 010 6v2a2 2 0 002 2h16a2 2 0 002-2v-2a3 3 0 010-6V7a2 2 0 00-2-2H4a2 2 0 00-2 2v2z"/></svg>
+          </div>
+        </div>
+        <div class="stat-card-trend up">↑ 14.2% <span class="text-muted font-medium"> vs last 30 days</span></div>
+        <div class="sparkline sparkline-blue"></div>
+      </div>
+
+      <!-- Refund Rate -->
+      <div class="stat-card">
+        <div class="stat-card-header">
+          <div>
+            <p class="stat-card-label">Refund Rate (30D)</p>
+            <p class="stat-card-value">{{ stats()!.refundRate30d }}%</p>
+          </div>
+          <div class="stat-card-icon" style="background:rgba(255,72,72,0.08)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF4848" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 102.13-9.36L1 10"></path></svg>
+          </div>
+        </div>
+        <div class="stat-card-trend down">↓ 0.28% <span class="text-muted font-medium"> vs last 30 days</span></div>
+        <div class="sparkline sparkline-red"></div>
+      </div>
+    </div>
+  }
+
+  <!-- Charts + Pending Approvals -->
+  <div class="dashboard-middle">
+    <!-- Revenue Chart -->
+    <div class="card revenue-card">
+      <div class="card-header">
+        <div>
+          <p class="card-title">Revenue Trend</p>
+          @if (stats()) {
+            <p class="revenue-value">{{ formatCurrency(stats()!.revenue30d) }}
+              <span class="badge-trend-up">↑ 18.4% vs last 30 days</span>
+            </p>
+          }
+        </div>
+        <select class="form-control" style="width:130px;height:32px;font-size:12px;">
+          <option>Last 30 days</option>
+          <option>Last 90 days</option>
+          <option>Last year</option>
+        </select>
+      </div>
+      <div class="chart-container">
+        <canvas #revenueChart></canvas>
+      </div>
+    </div>
+
+    <!-- Tickets Donut -->
+    <div class="card donut-card">
+      <div class="card-header">
+        <p class="card-title">Tickets Sold by Category</p>
+        <select class="form-control" style="width:130px;height:32px;font-size:12px;">
+          <option>Last 30 days</option>
+        </select>
+      </div>
+      <div class="donut-wrap">
+        <div class="chart-container donut-container">
+          <canvas #donutChart></canvas>
+          <div class="donut-center-label">
+            <span class="donut-total">18,672</span>
+            <span class="donut-total-label">Total</span>
+          </div>
+        </div>
+        <div class="donut-legend">
+          <div class="legend-item"><span class="legend-dot" style="background:#226CEB"></span>Concerts<span class="legend-val">7,842 (42%)</span></div>
+          <div class="legend-item"><span class="legend-dot" style="background:#48C5E9"></span>Music Festivals<span class="legend-val">4,215 (22%)</span></div>
+          <div class="legend-item"><span class="legend-dot" style="background:#5FD788"></span>Sports<span class="legend-val">2,941 (16%)</span></div>
+          <div class="legend-item"><span class="legend-dot" style="background:#FFBB23"></span>Theatre<span class="legend-val">2,103 (11%)</span></div>
+          <div class="legend-item"><span class="legend-dot" style="background:#FF4848"></span>Comedy<span class="legend-val">1,245 (7%)</span></div>
+          <div class="legend-item"><span class="legend-dot" style="background:#DADADA"></span>Others<span class="legend-val">326 (2%)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Approvals -->
+    <div class="card approvals-card">
+      <div class="card-header">
+        <p class="card-title">Pending Approvals</p>
+        <a routerLink="/events" class="text-primary text-sm font-medium">View all</a>
+      </div>
+      <div class="approvals-list">
+        @for (item of pendingApprovals(); track item.id) {
+          <div class="approval-item">
+            <div class="approval-dot" [class.dot-event]="item.type === 'event'" [class.dot-org]="item.type === 'organizer'"></div>
+            <div class="approval-info">
+              <p class="approval-name">{{ item.name }}</p>
+              <p class="approval-sub">{{ item.subtitle }}</p>
+              <p class="approval-time text-muted text-xs">Submitted {{ item.submittedAgo }}</p>
+            </div>
+            <span class="badge" [class.badge-info]="item.type==='event'" [class.badge-warning]="item.type==='organizer'">{{ item.status }}</span>
+          </div>
+        }
+        @if (pendingApprovals().length === 0 && !loading()) {
+          <p class="text-muted text-sm text-center" style="padding:20px 0;">No pending approvals 🎉</p>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Orders -->
+  <div class="card">
+    <div class="card-header">
+      <p class="card-title">Recent Orders</p>
+      <a routerLink="/orders" class="text-primary text-sm font-medium">View all orders</a>
+    </div>
+    <div class="table-container" style="border:none;border-radius:0;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Event</th>
+            <th>Tickets</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (i of [1,2,3,4,5]; track i) {
+              <tr>
+                @for (j of [1,2,3,4,5,6,7,8]; track j) {
+                  <td><div class="skeleton" style="height:16px;width:80%;border-radius:4px;"></div></td>
+                }
+              </tr>
+            }
+          } @else {
+            @for (order of recentOrders(); track order.id) {
+              <tr>
+                <td><span class="order-id">{{ order.id }}</span></td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <div class="avatar avatar-sm avatar-placeholder">{{ order.customerName?.[0] ?? '?' }}</div>
+                    <div>
+                      <p class="font-medium text-sm">{{ order.customerName }}</p>
+                      <p class="text-xs text-muted">{{ order.customerEmail }}</p>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <p class="font-medium text-sm">{{ order.eventName }}</p>
+                  <p class="text-xs text-muted">{{ formatDate(order.eventDate) }}</p>
+                </td>
+                <td>{{ order.totalTickets }}</td>
+                <td class="font-semibold">{{ formatCurrency(order.amount) }}</td>
+                <td><span class="badge" [class]="getOrderStatusClass(order.status)">{{ getOrderStatusLabel(order.status) }}</span></td>
+                <td class="text-sm text-muted">{{ formatDate(order.createdAt) }}</td>
+                <td>
+                  <button class="btn-icon" aria-label="More actions">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                  </button>
+                </td>
+              </tr>
+            }
+            @if (recentOrders().length === 0) {
+              <tr>
+                <td colspan="8" style="text-align:center;padding:32px;color:var(--color-text-muted);">No recent orders</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

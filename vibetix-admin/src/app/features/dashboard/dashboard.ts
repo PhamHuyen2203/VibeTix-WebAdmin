@@ -1,0 +1,163 @@
+import {
+  Component,
+  inject,
+  OnInit,
+  signal,
+  AfterViewInit,
+  ElementRef,
+  viewChild,
+} from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { DashboardService } from '../../core/services/dashboard.service';
+import { OrderDoc } from '../../core/models/order.model';
+import { Timestamp } from 'firebase/firestore';
+import { Chart, registerables } from 'chart.js';
+
+Chart.register(...registerables);
+
+@Component({
+  selector: 'app-dashboard',
+  imports: [RouterLink],
+  templateUrl: './dashboard.html',
+  styleUrl: './dashboard.css',
+})
+export class Dashboard implements OnInit, AfterViewInit {
+  private dashSvc = inject(DashboardService);
+
+  revenueChartRef = viewChild<ElementRef<HTMLCanvasElement>>('revenueChart');
+  donutChartRef = viewChild<ElementRef<HTMLCanvasElement>>('donutChart');
+
+  loading = signal(true);
+  stats = this.dashSvc.stats;
+  recentOrders = this.dashSvc.recentOrders;
+  pendingApprovals = this.dashSvc.pendingApprovals;
+
+  private revenueChart?: Chart;
+  private donutChart?: Chart;
+
+  async ngOnInit(): Promise<void> {
+    try {
+      await this.dashSvc.loadDashboard();
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  ngAfterViewInit(): void {
+    this.initCharts();
+  }
+
+  private initCharts(): void {
+    const revenueEl = this.revenueChartRef()?.nativeElement;
+    if (revenueEl) {
+      this.revenueChart = new Chart(revenueEl, {
+        type: 'line',
+        data: {
+          labels: ['Apr 18', 'Apr 25', 'May 2', 'May 9', 'May 16'],
+          datasets: [
+            {
+              label: 'Revenue',
+              data: [18000, 25000, 22000, 38000, 32840],
+              borderColor: '#226CEB',
+              backgroundColor: 'rgba(34,108,235,0.08)',
+              fill: true,
+              tension: 0.4,
+              pointBackgroundColor: '#226CEB',
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1E252D',
+              titleFont: { family: 'Poppins', size: 11 },
+              bodyFont: { family: 'Poppins', size: 12 },
+              callbacks: {
+                label: (ctx) => ` $${(ctx.parsed.y ?? 0).toLocaleString()}`,
+              },
+            },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { family: 'Poppins', size: 11 } } },
+            y: {
+              grid: { color: 'rgba(0,0,0,0.05)' },
+              ticks: {
+                font: { family: 'Poppins', size: 11 },
+                callback: (v) => `$${Number(v) / 1000}k`,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    const donutEl = this.donutChartRef()?.nativeElement;
+    if (donutEl) {
+      this.donutChart = new Chart(donutEl, {
+        type: 'doughnut',
+        data: {
+          labels: ['Concerts', 'Music Festivals', 'Sports', 'Theatre', 'Comedy', 'Others'],
+          datasets: [
+            {
+              data: [7842, 4215, 2941, 2103, 1245, 326],
+              backgroundColor: ['#226CEB', '#48C5E9', '#5FD788', '#FFBB23', '#FF4848', '#DADADA'],
+              borderWidth: 0,
+              hoverOffset: 6,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '68%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1E252D',
+              titleFont: { family: 'Poppins', size: 11 },
+              bodyFont: { family: 'Poppins', size: 12 },
+              callbacks: {
+                label: (ctx) => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}`,
+              },
+            },
+          },
+        },
+      });
+    }
+  }
+
+  formatCurrency(value: number): string {
+    return '$' + value.toLocaleString();
+  }
+
+  formatDate(ts: Timestamp | Date | undefined): string {
+    if (!ts) return '—';
+    const d = ts instanceof Timestamp ? ts.toDate() : ts;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  getOrderStatusClass(status: OrderDoc['status']): string {
+    const map: Record<string, string> = {
+      completed: 'badge-completed',
+      pending: 'badge-pending',
+      refunded: 'badge-refunded',
+      cancelled: 'badge-cancelled',
+    };
+    return map[status] ?? 'badge-gray';
+  }
+
+  getOrderStatusLabel(status: OrderDoc['status']): string {
+    const map: Record<string, string> = {
+      completed: 'Completed',
+      pending: 'Pending',
+      refunded: 'Refunded',
+      cancelled: 'Cancelled',
+    };
+    return map[status] ?? status;
+  }
+}

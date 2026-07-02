@@ -1,0 +1,3 @@
+import { Component } from '@angular/core';
+@Component({ selector: 'app-audit-logs', template: `<div class="page-wrapper"><div class="breadcrumb"><span>Dashboard</span><span class="breadcrumb-sep">/</span><span class="breadcrumb-current">Audit Logs</span></div><div class="page-header"><div><h1 class="page-title">Audit Logs</h1><p class="page-subtitle">Track all admin actions and changes across the platform.</p></div></div><div class="card" style="text-align:center;padding:60px 20px;"><img src="brand/mascot-vibetix.png" alt="" style="width:80px;margin:0 auto 16px;" /><h3>Audit Logs module coming soon</h3></div></div>`, imports: [] })
+export class AuditLogs {}

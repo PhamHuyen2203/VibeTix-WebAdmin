@@ -1,0 +1,304 @@
+<div class="page-wrapper" [class.has-panel]="selectedEvent()">
+  <div>
+    <div class="breadcrumb">
+      <a href="/dashboard">Events</a>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-current">Manage Events</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid-4">
+    <div class="stat-card">
+      <p class="stat-card-label">Total Events</p>
+      <p class="stat-card-value">{{ totalCount().toLocaleString() }}</p>
+      <div class="stat-card-trend up">↑ 12.6% vs last 30 days</div>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Pending Review</p>
+      <p class="stat-card-value">{{ pendingCount() }}</p>
+      <div class="stat-card-trend up">↑ 8.4% vs last 30 days</div>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Approved</p>
+      <p class="stat-card-value">{{ approvedCount().toLocaleString() }}</p>
+      <div class="stat-card-trend up">↑ 14.7% vs last 30 days</div>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Cancelled</p>
+      <p class="stat-card-value">{{ cancelledCount() }}</p>
+      <div class="stat-card-trend down">↓ 2.1% vs last 30 days</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="filterStatus" (change)="loadEvents()" id="evt-filter-status">
+      <option value="">All Statuses</option>
+      <option value="pending_review">Pending Review</option>
+      <option value="approved">Approved</option>
+      <option value="rejected">Rejected</option>
+      <option value="cancelled">Cancelled</option>
+      <option value="featured">Featured</option>
+    </select>
+    <select class="form-control" style="width:150px;height:36px;" [(ngModel)]="filterCategory" (change)="loadEvents()" id="evt-filter-category">
+      <option value="">All Categories</option>
+      <option value="Concerts">Concerts</option>
+      <option value="Music Festivals">Music Festivals</option>
+      <option value="Sports">Sports</option>
+      <option value="Theatre">Theatre</option>
+      <option value="Comedy">Comedy</option>
+    </select>
+    <select class="form-control" style="width:160px;height:36px;" id="evt-filter-organizer">
+      <option value="">All Organizers</option>
+    </select>
+    <div style="display:flex;align-items:center;gap:6px;border:1px solid var(--border-color);border-radius:8px;padding:0 10px;height:36px;font-size:12px;background:white;min-width:200px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+      May 1 – May 31, 2025
+    </div>
+    <button class="btn btn-ghost btn-sm" (click)="filterStatus='';filterCategory='';loadEvents()">Clear Filters</button>
+    <button class="btn btn-primary btn-sm" style="margin-left:auto;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      Add Event
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="table-container" style="border:none;border-radius:0;box-shadow:none;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:32px;"><input type="checkbox" /></th>
+            <th>Event Name</th>
+            <th>Organizer</th>
+            <th>Category</th>
+            <th>Venue</th>
+            <th>Date</th>
+            <th>Ticket Sales</th>
+            <th>Revenue</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (i of [1,2,3,4,5,6,7,8,9,10]; track i) {
+              <tr>
+                @for (j of [1,2,3,4,5,6,7,8,9,10]; track j) {
+                  <td><div class="skeleton" style="height:14px;width:80%;border-radius:4px;"></div></td>
+                }
+              </tr>
+            }
+          } @else {
+            @for (event of events(); track event.id) {
+              <tr (click)="selectEvent(event)" [class.selected]="selectedEvent()?.id === event.id" style="cursor:pointer;">
+                <td><input type="checkbox" (click)="$event.stopPropagation()" /></td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <div class="event-thumb" style="background:var(--gradient-brand);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="none"><path d="M2 9a3 3 0 010 6v2a2 2 0 002 2h16a2 2 0 002-2v-2a3 3 0 010-6V7a2 2 0 00-2-2H4a2 2 0 00-2 2v2z"/></svg>
+                    </div>
+                    <div>
+                      <p class="font-semibold text-sm">{{ event.title }}</p>
+                      <p class="text-xs text-muted">ID: {{ event.id.slice(0,8).toUpperCase() }}</p>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <div class="avatar avatar-sm avatar-placeholder" style="border-radius:8px;">{{ event.organizerName?.[0] ?? '?' }}</div>
+                    <span class="text-sm font-medium">{{ event.organizerName }}</span>
+                  </div>
+                </td>
+                <td><span class="badge badge-primary">{{ event.category }}</span></td>
+                <td>
+                  <p class="text-sm">{{ event.venue }}</p>
+                  <p class="text-xs text-muted">{{ event.location }}</p>
+                </td>
+                <td class="text-sm text-muted">{{ formatDate(event.date) }}</td>
+                <td>
+                  <p class="text-sm font-medium">{{ event.ticketSold }} / {{ event.totalTickets }}</p>
+                  <div class="progress-bar" style="margin-top:4px;">
+                    <div class="progress-bar-fill" [style.width]="ticketProgress(event) + '%'"></div>
+                  </div>
+                  <p class="text-xs text-muted" style="margin-top:2px;">{{ ticketProgress(event) }}%</p>
+                </td>
+                <td class="font-semibold text-sm">${{ event.revenue.toLocaleString() }}</td>
+                <td><span class="badge" [class]="getStatusClass(event.status)">{{ getStatusLabel(event.status) }}</span></td>
+                <td>
+                  <div class="flex gap-1">
+                    <button class="btn-icon" aria-label="View" (click)="$event.stopPropagation()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                    <button class="btn-icon" aria-label="More" (click)="$event.stopPropagation()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+            @if (events().length === 0) {
+              <tr><td colspan="10" style="text-align:center;padding:40px;color:var(--color-text-muted);">No events found.</td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border-color);font-size:12px;color:var(--color-text-muted);">
+      Showing 1 to {{ events().length }} of {{ totalCount().toLocaleString() }} events
+      <span style="margin:0 12px;color:var(--border-color);">|</span>
+      10 / page
+    </div>
+  </div>
+</div>
+
+<!-- Event Detail Panel -->
+@if (selectedEvent()) {
+  <div class="panel-overlay" (click)="closeDetail()"></div>
+  <aside class="detail-panel">
+    <div class="panel-header">
+      <div>
+        <p class="text-xs text-muted">ID: {{ selectedEvent()!.id.slice(0,8).toUpperCase() }}  •  Submitted {{ formatDate(selectedEvent()!.createdAt) }}</p>
+        <h3 class="panel-title">{{ selectedEvent()!.title }}</h3>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="badge" [class]="getStatusClass(selectedEvent()!.status)">{{ getStatusLabel(selectedEvent()!.status) }}</span>
+        <button class="btn-icon" (click)="closeDetail()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Event Image -->
+    <div class="event-banner" style="background:var(--gradient-brand);min-height:140px;display:flex;align-items:center;justify-content:center;">
+      @if (selectedEvent()!.imageUrl) {
+        <img [src]="selectedEvent()!.imageUrl" [alt]="selectedEvent()!.title" style="width:100%;height:140px;object-fit:cover;" />
+      } @else {
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="white" opacity="0.7"><path d="M2 9a3 3 0 010 6v2a2 2 0 002 2h16a2 2 0 002-2v-2a3 3 0 010-6V7a2 2 0 00-2-2H4a2 2 0 00-2 2v2z"/></svg>
+      }
+    </div>
+
+    <!-- Event Info -->
+    <div class="panel-section">
+      <div class="info-row mb-2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        <span class="text-sm">{{ formatDate(selectedEvent()!.date) }}</span>
+      </div>
+      <div class="info-row">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        <span class="text-sm">{{ selectedEvent()!.venue }}, {{ selectedEvent()!.location }}</span>
+      </div>
+    </div>
+
+    <!-- About -->
+    @if (selectedEvent()!.description) {
+      <div class="panel-section">
+        <h5 class="panel-section-title">About Event</h5>
+        <p class="text-sm text-muted" style="line-height:1.6;">{{ selectedEvent()!.description }}</p>
+      </div>
+    }
+
+    <!-- Schedule -->
+    @if (selectedEvent()!.schedule?.length) {
+      <div class="panel-section">
+        <h5 class="panel-section-title">Schedule</h5>
+        <div class="schedule-list">
+          @for (item of selectedEvent()!.schedule; track item.time) {
+            <div class="schedule-item">
+              <span class="schedule-time text-sm font-semibold">{{ item.time }}</span>
+              <span class="schedule-activity text-sm text-muted">{{ item.activity }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Pricing -->
+    @if (selectedEvent()!.pricing?.length) {
+      <div class="panel-section">
+        <div class="flex items-center justify-between mb-3">
+          <h5 class="panel-section-title" style="margin:0;">Pricing Summary</h5>
+          <a class="text-primary text-xs font-medium">View Pricing Details</a>
+        </div>
+        @for (tier of selectedEvent()!.pricing; track tier.name) {
+          <div class="info-row" style="margin-bottom:6px;">
+            <span class="text-sm">{{ tier.name }}</span>
+            <span class="text-sm font-semibold">${{ tier.price.toFixed(2) }}</span>
+          </div>
+        }
+        <div class="info-row" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-color);">
+          <span class="text-sm font-semibold">Total Pricing Tiers</span>
+          <span class="text-sm font-bold">{{ selectedEvent()!.pricing.length }}</span>
+        </div>
+      </div>
+    }
+
+    <!-- Documents -->
+    @if (selectedEvent()!.documents?.length) {
+      <div class="panel-section">
+        <h5 class="panel-section-title">Event Documents</h5>
+        @for (doc of selectedEvent()!.documents; track doc.name) {
+          <div class="doc-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            <div class="doc-info">
+              <p class="text-sm font-medium">{{ doc.name }}</p>
+              <p class="text-xs text-muted">{{ doc.fileName }}</p>
+            </div>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Action Buttons -->
+    <div class="panel-actions">
+      <button class="btn btn-success btn-sm" [disabled]="actionLoading() !== null || selectedEvent()!.status === 'approved'" (click)="approve()" id="btn-approve-event">✓ Approve</button>
+      <button class="btn btn-danger btn-sm" [disabled]="actionLoading() !== null || selectedEvent()!.status === 'rejected'" (click)="openRejectModal()" id="btn-reject-event">✕ Reject</button>
+      <button class="btn btn-sm" style="background:var(--color-yellow);color:var(--color-text-main);" [disabled]="actionLoading() !== null" (click)="feature()" id="btn-feature-event">
+        {{ selectedEvent()!.featured ? '★ Unfeature' : '☆ Feature' }}
+      </button>
+      <button class="btn btn-ghost btn-sm" [disabled]="actionLoading() !== null || selectedEvent()!.status === 'cancelled'" (click)="openCancelModal()" id="btn-cancel-event">✕ Cancel</button>
+    </div>
+  </aside>
+}
+
+<!-- Reject Modal -->
+@if (showRejectModal()) {
+  <div class="modal-overlay" (click)="showRejectModal.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h4 class="modal-title">Reject Event</h4>
+        <button class="btn-icon" (click)="showRejectModal.set(false)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rejection Reason *</label>
+        <textarea class="form-control" rows="4" placeholder="Explain why this event is being rejected..." [value]="actionReason()" (input)="actionReason.set($any($event.target).value)" id="event-reject-reason"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="showRejectModal.set(false)">Cancel</button>
+        <button class="btn btn-danger" [disabled]="!actionReason() || actionLoading() === 'reject'" (click)="confirmReject()">Confirm Rejection</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Cancel Modal -->
+@if (showCancelModal()) {
+  <div class="modal-overlay" (click)="showCancelModal.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h4 class="modal-title">Cancel Event</h4>
+        <button class="btn-icon" (click)="showCancelModal.set(false)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cancellation Reason *</label>
+        <textarea class="form-control" rows="4" placeholder="Explain why this event is being cancelled..." [value]="actionReason()" (input)="actionReason.set($any($event.target).value)" id="event-cancel-reason"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="showCancelModal.set(false)">Cancel</button>
+        <button class="btn btn-danger" [disabled]="!actionReason() || actionLoading() === 'cancel'" (click)="confirmCancel()">Confirm Cancellation</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,3 @@
+import { Component } from '@angular/core';
+@Component({ selector: 'app-promotions', template: `<div class="page-wrapper"><div class="breadcrumb"><span>Dashboard</span><span class="breadcrumb-sep">/</span><span class="breadcrumb-current">Promotions</span></div><div class="page-header"><div><h1 class="page-title">Promotions</h1><p class="page-subtitle">Create and manage discount codes and promotions.</p></div></div><div class="card" style="text-align:center;padding:60px 20px;"><img src="brand/mascot-vibetix.png" alt="" style="width:80px;margin:0 auto 16px;" /><h3>Promotions module coming soon</h3></div></div>`, imports: [] })
+export class Promotions {}

@@ -1,0 +1,189 @@
+/* ── Sparklines (mini wave under stat cards) ── */
+.sparkline {
+  height: 36px;
+  border-radius: 0 0 var(--border-radius) var(--border-radius);
+  margin: 8px -20px -20px;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 36'%3E%3Cpath d='M0 28 C20 28 30 10 50 12 C70 14 80 26 100 20 C120 14 130 8 150 10 C170 12 180 22 200 18 L200 36 L0 36Z' fill='currentColor' opacity='0.15'/%3E%3Cpath d='M0 28 C20 28 30 10 50 12 C70 14 80 26 100 20 C120 14 130 8 150 10 C170 12 180 22 200 18' stroke='currentColor' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.sparkline-blue { color: #226CEB; }
+.sparkline-cyan { color: #48C5E9; }
+.sparkline-yellow { color: #E2B93B; }
+.sparkline-green { color: #5FD788; }
+.sparkline-red { color: #FF4848; }
+
+/* ── Dashboard Middle Row ── */
+.dashboard-middle {
+  display: grid;
+  grid-template-columns: 1fr minmax(260px, 320px) minmax(240px, 300px);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .dashboard-middle {
+    grid-template-columns: 1fr 1fr;
+  }
+  .approvals-card { grid-column: 1 / -1; }
+}
+
+@media (max-width: 800px) {
+  .dashboard-middle { grid-template-columns: 1fr; }
+}
+
+/* Revenue card */
+.revenue-card { overflow: hidden; }
+
+.revenue-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.badge-trend-up {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-success);
+  background: rgba(39, 174, 96, 0.10);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.chart-container {
+  height: 220px;
+  position: relative;
+}
+
+/* Donut card */
+.donut-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.donut-container {
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.donut-center-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.donut-total {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-main);
+  line-height: 1.2;
+}
+
+.donut-total-label {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-val {
+  margin-left: auto;
+  color: var(--color-text-main);
+  font-weight: 500;
+}
+
+/* Approvals card */
+.approvals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.approval-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.approval-item:last-child {
+  border-bottom: none;
+}
+
+.approval-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.dot-event { background: var(--color-primary); }
+.dot-org { background: var(--color-warning); }
+
+.approval-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.approval-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-main);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.approval-sub {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 1px;
+}
+
+.approval-time {
+  margin-top: 2px;
+}
+
+/* Orders table */
+.order-id {
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
