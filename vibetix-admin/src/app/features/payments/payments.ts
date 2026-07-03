@@ -24,40 +24,40 @@ import { Timestamp } from 'firebase/firestore';
       </div>
 
       <!-- Filters -->
-      <div class="card mb-4" style="padding: 16px;">
-        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-          <select
-            class="form-control"
-            [(ngModel)]="selectedMethod"
-            style="width:160px; height:38px;"
-          >
-            <option value="">All Gateways</option>
-            <option value="momo">MoMo</option>
-            <option value="zalopay">ZaloPay</option>
-            <option value="vnpay">VNPay</option>
-            <option value="visa">Visa</option>
-            <option value="mastercard">Mastercard</option>
-          </select>
-          <select
-            class="form-control"
-            [(ngModel)]="selectedStatus"
-            style="width:160px; height:38px;"
-          >
-            <option value="">All Statuses</option>
-            <option value="success">Success</option>
-            <option value="failed">Failed</option>
-            <option value="refunded">Refunded</option>
-          </select>
-          <button class="btn btn-primary" (click)="loadPayments()">Filter</button>
+      <div class="filter-bar">
+        <div class="form-control-icon" style="flex:1;max-width:300px;position:relative;">
+          <span class="icon-left" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;color:var(--color-text-muted);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </span>
+          <input type="search" class="form-control input-search" style="padding-left:34px;height:36px;" placeholder="Search Payment ID, Invoice ID or TXN..." [(ngModel)]="searchTerm" (input)="applyFilters()" />
         </div>
+        <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="selectedMethod" (change)="applyFilters()">
+          <option value="">All Gateways</option>
+          <option value="momo">MoMo</option>
+          <option value="zalopay">ZaloPay</option>
+          <option value="vnpay">VNPay</option>
+          <option value="visa">Visa</option>
+          <option value="mastercard">Mastercard</option>
+        </select>
+        <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="selectedStatus" (change)="applyFilters()">
+          <option value="">All Statuses</option>
+          <option value="success">Success</option>
+          <option value="failed">Failed</option>
+          <option value="refunded">Refunded</option>
+        </select>
+        <div style="position:relative; display:flex; align-items:center; gap:8px;">
+          <span style="font-size:12px; color:var(--color-text-secondary); font-weight:500;">Min Amount:</span>
+          <input type="number" class="form-control" style="width:90px; height:36px; padding:6px 10px;" placeholder="0" [(ngModel)]="minAmount" (input)="applyFilters()" min="0" />
+        </div>
+        <button class="btn btn-ghost btn-sm" (click)="resetFilters()">Clear Filters</button>
       </div>
 
       <!-- Table Card -->
-      <div class="card">
+      <div class="card" style="padding:0;overflow:hidden;">
         @if (loading()) {
           <div style="padding:40px; text-align:center;" class="text-muted">Loading payments...</div>
         } @else {
-          <div class="table-container" style="border:none; border-radius:0; margin:0;">
+          <div class="table-container" style="border:none; border-radius:0; margin:0; box-shadow:none;">
             <table class="table">
               <thead>
                 <tr>
@@ -68,10 +68,11 @@ import { Timestamp } from 'firebase/firestore';
                   <th>Amount</th>
                   <th>Status</th>
                   <th>Payment Date</th>
+                  <th style="text-align:right;">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                @for (payment of payments(); track payment.id) {
+                @for (payment of paginatedPayments; track payment.id) {
                   <tr>
                     <td><span class="order-id" style="font-family:monospace; font-size:13px;">{{ payment.paymentId }}</span></td>
                     <td><span class="text-muted" style="font-family:monospace; font-size:12px;">{{ payment.invoiceId || '—' }}</span></td>
@@ -88,12 +89,17 @@ import { Timestamp } from 'firebase/firestore';
                       </span>
                     </td>
                     <td class="text-sm text-muted">{{ formatDate(payment.paymentDate) }}</td>
+                    <td style="text-align:right;">
+                      <div class="action-row" style="justify-content:flex-end;">
+                        <button class="btn btn-sm btn-ghost" (click)="viewDetails(payment)">Details</button>
+                      </div>
+                    </td>
                   </tr>
                 }
-                @if (payments().length === 0) {
+                @if (filteredPayments().length === 0) {
                   <tr>
-                    <td colspan="7" style="text-align:center; padding:48px; color:var(--color-text-muted);">
-                      No payments found.
+                    <td colspan="8" style="text-align:center; padding:48px; color:var(--color-text-muted);">
+                      No payments found matching filters.
                     </td>
                   </tr>
                 }
@@ -102,49 +108,184 @@ import { Timestamp } from 'firebase/firestore';
           </div>
 
           <!-- Pagination -->
-          @if (hasMore()) {
-            <div style="padding:16px; display:flex; justify-content:center; border-top:1px solid var(--color-border);">
-              <button class="btn btn-outline" (click)="loadMore()">Load More</button>
+          <div class="table-footer">
+            <div class="pagination">
+              <button class="pagination-btn" [disabled]="currentPage() === 1" (click)="prevPage()">‹</button>
+              @for (p of getPagesArray(); track p) {
+                <button class="pagination-btn" [class.active]="currentPage() === p" (click)="currentPage.set(p)">{{ p }}</button>
+              }
+              <button class="pagination-btn" [disabled]="currentPage() >= totalPages" (click)="nextPage()">›</button>
             </div>
-          }
+            <div class="rows-per-page">
+              Rows per page
+              <select class="form-control" style="width:70px;height:30px;font-size:12px;padding:2px 8px;" [(ngModel)]="pageSize" (change)="currentPage.set(1)">
+                <option [ngValue]="10">10</option>
+                <option [ngValue]="20">20</option>
+                <option [ngValue]="50">50</option>
+                <option [ngValue]="100">100</option>
+              </select>
+            </div>
+          </div>
         }
       </div>
     </div>
-  `
+
+    <!-- Detail Modal -->
+    @if (detailModalOpen()) {
+      <div class="modal-backdrop">
+        <div class="modal-card" style="max-width:540px;">
+          <div class="modal-header">
+            <h3>Payment Details</h3>
+            <button class="btn-icon" (click)="detailModalOpen.set(false)">×</button>
+          </div>
+          <div class="modal-body">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+              <div>
+                <span class="text-xs text-muted">PAYMENT ID</span>
+                <p class="font-semibold" style="font-family:monospace;">{{ selectedPayment()?.paymentId }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-muted">STATUS</span>
+                <div>
+                  <span class="badge" [ngClass]="getStatusClass(selectedPayment()?.status || 'success')">
+                    {{ selectedPayment()?.status | uppercase }}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <span class="text-xs text-muted">INVOICE ID</span>
+                <p style="font-family:monospace; font-size:12px;">{{ selectedPayment()?.invoiceId || '—' }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-muted">TRANSACTION ID</span>
+                <p style="font-family:monospace; font-size:12px; color:var(--color-primary);">{{ selectedPayment()?.transactionId || '—' }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-muted">AMOUNT</span>
+                <p class="font-semibold">{{ formatCurrency(selectedPayment()?.amount || 0) }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-muted">DATE</span>
+                <p>{{ formatDate(selectedPayment()?.paymentDate) }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" (click)="detailModalOpen.set(false)">Close</button>
+          </div>
+        </div>
+      </div>
+    }
+  `,
+  styles: [`
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-card {
+      background: var(--color-white);
+      border-radius: 12px;
+      width: 90%;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+      overflow: hidden;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+    .modal-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-body {
+      padding: 20px;
+    }
+    .modal-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--color-border);
+      background: var(--color-background-sub);
+      text-align: right;
+    }
+    @keyframes modalFadeIn {
+      from { transform: translateY(12px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  `]
 })
 export class Payments implements OnInit {
   private paymentsSvc = inject(PaymentsService);
 
   payments = signal<PaymentDoc[]>([]);
+  filteredPayments = signal<PaymentDoc[]>([]);
   loading = signal(true);
-  hasMore = signal(false);
-  lastDoc: any = null;
+
+  // Pagination
+  currentPage = signal(1);
+  pageSize = signal(20);
 
   // Filters
+  searchTerm = '';
   selectedMethod = '';
   selectedStatus = '';
+  minAmount: number | null = null;
+
+  // Modals
+  detailModalOpen = signal(false);
+  selectedPayment = signal<PaymentDoc | null>(null);
+
+  // Computed Pagination Properties
+  get paginatedPayments(): PaymentDoc[] {
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredPayments().slice(start, start + this.pageSize());
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredPayments().length / this.pageSize()) || 1;
+  }
+
+  getPageStart(): number {
+    if (this.filteredPayments().length === 0) return 0;
+    return (this.currentPage() - 1) * this.pageSize() + 1;
+  }
+
+  getPageEnd(): number {
+    return Math.min(this.currentPage() * this.pageSize(), this.filteredPayments().length);
+  }
+
+  nextPage(): void {
+    if (this.currentPage() < this.totalPages) this.currentPage.update((p) => p + 1);
+  }
+
+  prevPage(): void {
+    if (this.currentPage() > 1) this.currentPage.update((p) => p - 1);
+  }
+
+  getPagesArray(): number[] {
+    const pages = [];
+    for (let i = 1; i <= this.totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
 
   ngOnInit(): void {
     this.loadPayments();
   }
 
-  async loadPayments(append = false): Promise<void> {
-    this.loading.set(!append);
+  async loadPayments(): Promise<void> {
+    this.loading.set(true);
     try {
       const res = await this.paymentsSvc.getPayments({
-        pageSize: 20,
-        status: this.selectedStatus || undefined,
-        method: this.selectedMethod || undefined,
-        cursor: append ? this.lastDoc : undefined,
+        pageSize: 1000,
       });
 
-      if (append) {
-        this.payments.update((prev) => [...prev, ...res.items]);
-      } else {
-        this.payments.set(res.items);
-      }
-      this.hasMore.set(res.hasMore);
-      this.lastDoc = res.lastDoc;
+      this.payments.set(res.items);
+      this.applyFilters();
     } catch (err) {
       console.error(err);
     } finally {
@@ -152,10 +293,52 @@ export class Payments implements OnInit {
     }
   }
 
-  loadMore(): void {
-    if (this.hasMore()) {
-      this.loadPayments(true);
+  applyFilters(): void {
+    let list = this.payments();
+
+    if (this.searchTerm.trim()) {
+      const term = this.searchTerm.toLowerCase().trim();
+      list = list.filter((p) => 
+        (p.paymentId || '').toLowerCase().includes(term) || 
+        (p.invoiceId || '').toLowerCase().includes(term) || 
+        (p.transactionId || '').toLowerCase().includes(term)
+      );
     }
+
+    if (this.selectedMethod) {
+      list = list.filter((p) => p.method === this.selectedMethod);
+    }
+
+    if (this.selectedStatus) {
+      list = list.filter((p) => p.status === this.selectedStatus);
+    }
+
+    if (this.minAmount !== null && this.minAmount > 0) {
+      list = list.filter((p) => (p.amount || 0) >= this.minAmount!);
+    }
+
+    // Sort newest first
+    list.sort((a, b) => {
+      const dateA = a.paymentDate instanceof Timestamp ? a.paymentDate.toDate().getTime() : (a.paymentDate ? new Date(a.paymentDate).getTime() : 0);
+      const dateB = b.paymentDate instanceof Timestamp ? b.paymentDate.toDate().getTime() : (b.paymentDate ? new Date(b.paymentDate).getTime() : 0);
+      return dateB - dateA;
+    });
+
+    this.filteredPayments.set(list);
+    this.currentPage.set(1);
+  }
+
+  resetFilters(): void {
+    this.searchTerm = '';
+    this.selectedMethod = '';
+    this.selectedStatus = '';
+    this.minAmount = null;
+    this.applyFilters();
+  }
+
+  viewDetails(payment: PaymentDoc): void {
+    this.selectedPayment.set(payment);
+    this.detailModalOpen.set(true);
   }
 
   formatCurrency(val: number): string {

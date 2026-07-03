@@ -24,37 +24,30 @@ import { Timestamp } from 'firebase/firestore';
       </div>
 
       <!-- Filters & Actions -->
-      <div class="card mb-4" style="padding: 16px;">
-        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-          <input
-            type="text"
-            class="form-control"
-            placeholder="Search by Ticket Code..."
-            [(ngModel)]="searchCode"
-            style="width:240px; height:38px;"
-          />
-          <select
-            class="form-control"
-            [(ngModel)]="selectedStatus"
-            style="width:160px; height:38px;"
-          >
-            <option value="">All Statuses</option>
-            <option value="valid">Valid</option>
-            <option value="used">Used</option>
-            <option value="expired">Expired</option>
-            <option value="transferred">Transferred</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <button class="btn btn-primary" (click)="loadTickets()">Apply Filter</button>
+      <div class="filter-bar">
+        <div class="form-control-icon" style="flex:1;max-width:300px;position:relative;">
+          <span class="icon-left" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;color:var(--color-text-muted);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </span>
+          <input type="search" class="form-control input-search" style="padding-left:34px;height:36px;" placeholder="Search Ticket Code or User ID..." [(ngModel)]="searchCode" (input)="applyFilters()" />
         </div>
+        <select class="form-control" style="width:150px;height:36px;" [(ngModel)]="selectedStatus" (change)="applyFilters()">
+          <option value="">All Statuses</option>
+          <option value="valid">Valid</option>
+          <option value="used">Used</option>
+          <option value="expired">Expired</option>
+          <option value="transferred">Transferred</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" (click)="resetFilters()">Clear Filters</button>
       </div>
 
       <!-- Table Card -->
-      <div class="card">
+      <div class="card" style="padding:0;overflow:hidden;">
         @if (loading()) {
           <div style="padding:40px; text-align:center;" class="text-muted">Loading tickets...</div>
         } @else {
-          <div class="table-container" style="border:none; border-radius:0; margin:0;">
+          <div class="table-container" style="border:none; border-radius:0; margin:0; box-shadow:none;">
             <table class="table">
               <thead>
                 <tr>
@@ -69,7 +62,7 @@ import { Timestamp } from 'firebase/firestore';
                 </tr>
               </thead>
               <tbody>
-                @for (ticket of tickets(); track ticket.id) {
+                @for (ticket of paginatedTickets; track ticket.id) {
                   <tr>
                     <td><span class="order-id" style="font-family:monospace; font-size:13px; color:var(--color-primary);">{{ ticket.ticketCode }}</span></td>
                     <td>{{ ticket.displayCode || '—' }}</td>
@@ -83,18 +76,19 @@ import { Timestamp } from 'firebase/firestore';
                     <td class="text-sm text-muted">{{ formatDate(ticket.checkedInAt) }}</td>
                     <td class="text-sm text-muted">{{ formatDate(ticket.issuedAt) }}</td>
                     <td style="text-align:right;">
-                      @if (ticket.status === 'valid') {
-                        <button class="btn btn-sm btn-danger" (click)="cancelTicket(ticket)">Cancel</button>
-                      } @else {
-                        <span class="text-muted text-xs">—</span>
-                      }
+                      <div class="action-row" style="justify-content:flex-end;">
+                        <button class="btn btn-sm btn-ghost" (click)="viewDetails(ticket)">Details</button>
+                        @if (ticket.status === 'valid') {
+                          <button class="btn btn-sm btn-ghost text-error" (click)="cancelTicket(ticket)">Cancel</button>
+                        }
+                      </div>
                     </td>
                   </tr>
                 }
-                @if (tickets().length === 0) {
+                @if (filteredTickets().length === 0) {
                   <tr>
                     <td colspan="8" style="text-align:center; padding:48px; color:var(--color-text-muted);">
-                      No tickets found.
+                      No tickets found matching filters.
                     </td>
                   </tr>
                 }
@@ -103,49 +97,182 @@ import { Timestamp } from 'firebase/firestore';
           </div>
 
           <!-- Pagination -->
-          @if (hasMore()) {
-            <div style="padding:16px; display:flex; justify-content:center; border-top:1px solid var(--color-border);">
-              <button class="btn btn-outline" (click)="loadMore()">Load More</button>
+          <div class="table-footer">
+            <div class="pagination">
+              <button class="pagination-btn" [disabled]="currentPage() === 1" (click)="prevPage()">‹</button>
+              @for (p of getPagesArray(); track p) {
+                <button class="pagination-btn" [class.active]="currentPage() === p" (click)="currentPage.set(p)">{{ p }}</button>
+              }
+              <button class="pagination-btn" [disabled]="currentPage() >= totalPages" (click)="nextPage()">›</button>
             </div>
-          }
+            <div class="rows-per-page">
+              Rows per page
+              <select class="form-control" style="width:70px;height:30px;font-size:12px;padding:2px 8px;" [(ngModel)]="pageSize" (change)="currentPage.set(1)">
+                <option [ngValue]="10">10</option>
+                <option [ngValue]="20">20</option>
+                <option [ngValue]="50">50</option>
+                <option [ngValue]="100">100</option>
+              </select>
+            </div>
+          </div>
         }
       </div>
     </div>
-  `
+
+    <!-- Detail Modal -->
+    @if (detailModalOpen()) {
+      <div class="modal-backdrop">
+        <div class="modal-card" style="max-width:540px;">
+          <div class="modal-header">
+            <h3>Ticket Details</h3>
+            <button class="btn-icon" (click)="detailModalOpen.set(false)">×</button>
+          </div>
+          <div class="modal-body">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+              <div>
+                <span class="text-xs text-muted">TICKET CODE</span>
+                <p class="font-semibold" style="font-family:monospace;">{{ selectedTicket()?.ticketCode }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-muted">STATUS</span>
+                <div>
+                  <span class="badge" [ngClass]="getStatusClass(selectedTicket()?.status || 'valid')">
+                    {{ getStatusLabel(selectedTicket()?.status || 'valid') }}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <span class="text-xs text-muted">CUSTOMER UID</span>
+                <p style="font-family:monospace; font-size:12px;">{{ selectedTicket()?.userId }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-muted">EVENT ID</span>
+                <p style="font-family:monospace; font-size:12px;">{{ selectedTicket()?.eventId }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-muted">ISSUED AT</span>
+                <p>{{ formatDate(selectedTicket()?.issuedAt) }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-muted">CHECKED IN</span>
+                <p>{{ formatDate(selectedTicket()?.checkedInAt) }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" (click)="detailModalOpen.set(false)">Close</button>
+          </div>
+        </div>
+      </div>
+    }
+  `,
+  styles: [`
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-card {
+      background: var(--color-white);
+      border-radius: 12px;
+      width: 90%;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+      overflow: hidden;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+    .modal-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-body {
+      padding: 20px;
+    }
+    .modal-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--color-border);
+      background: var(--color-background-sub);
+      text-align: right;
+    }
+    @keyframes modalFadeIn {
+      from { transform: translateY(12px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  `]
 })
 export class Tickets implements OnInit {
   private ticketsSvc = inject(TicketsService);
 
   tickets = signal<UserTicketDoc[]>([]);
+  filteredTickets = signal<UserTicketDoc[]>([]);
   loading = signal(true);
-  hasMore = signal(false);
-  lastDoc: any = null;
+
+  // Pagination
+  currentPage = signal(1);
+  pageSize = signal(20);
 
   // Search & Filter
   searchCode = '';
   selectedStatus = '';
 
+  // Modals
+  detailModalOpen = signal(false);
+  selectedTicket = signal<UserTicketDoc | null>(null);
+
+  // Computed Pagination Properties
+  get paginatedTickets(): UserTicketDoc[] {
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredTickets().slice(start, start + this.pageSize());
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredTickets().length / this.pageSize()) || 1;
+  }
+
+  getPageStart(): number {
+    if (this.filteredTickets().length === 0) return 0;
+    return (this.currentPage() - 1) * this.pageSize() + 1;
+  }
+
+  getPageEnd(): number {
+    return Math.min(this.currentPage() * this.pageSize(), this.filteredTickets().length);
+  }
+
+  nextPage(): void {
+    if (this.currentPage() < this.totalPages) this.currentPage.update((p) => p + 1);
+  }
+
+  prevPage(): void {
+    if (this.currentPage() > 1) this.currentPage.update((p) => p - 1);
+  }
+
+  getPagesArray(): number[] {
+    const pages = [];
+    for (let i = 1; i <= this.totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
   ngOnInit(): void {
     this.loadTickets();
   }
 
-  async loadTickets(append = false): Promise<void> {
-    this.loading.set(!append);
+  async loadTickets(): Promise<void> {
+    this.loading.set(true);
     try {
       const res = await this.ticketsSvc.getTickets({
-        pageSize: 20,
-        status: this.selectedStatus || undefined,
-        ticketCode: this.searchCode.trim() || undefined,
-        cursor: append ? this.lastDoc : undefined,
+        pageSize: 1000,
       });
 
-      if (append) {
-        this.tickets.update((prev) => [...prev, ...res.items]);
-      } else {
-        this.tickets.set(res.items);
-      }
-      this.hasMore.set(res.hasMore);
-      this.lastDoc = res.lastDoc;
+      this.tickets.set(res.items);
+      this.applyFilters();
     } catch (err) {
       console.error(err);
     } finally {
@@ -153,10 +280,38 @@ export class Tickets implements OnInit {
     }
   }
 
-  loadMore(): void {
-    if (this.hasMore()) {
-      this.loadTickets(true);
+  applyFilters(): void {
+    let list = this.tickets();
+
+    if (this.searchCode.trim()) {
+      const term = this.searchCode.toLowerCase().trim();
+      list = list.filter((t) => (t.ticketCode || '').toLowerCase().includes(term) || (t.userId || '').toLowerCase().includes(term));
     }
+
+    if (this.selectedStatus) {
+      list = list.filter((t) => t.status === this.selectedStatus);
+    }
+
+    // Sort newest first
+    list.sort((a, b) => {
+      const dateA = a.issuedAt instanceof Timestamp ? a.issuedAt.toDate().getTime() : (a.issuedAt ? new Date(a.issuedAt).getTime() : 0);
+      const dateB = b.issuedAt instanceof Timestamp ? b.issuedAt.toDate().getTime() : (b.issuedAt ? new Date(b.issuedAt).getTime() : 0);
+      return dateB - dateA;
+    });
+
+    this.filteredTickets.set(list);
+    this.currentPage.set(1);
+  }
+
+  resetFilters(): void {
+    this.searchCode = '';
+    this.selectedStatus = '';
+    this.applyFilters();
+  }
+
+  viewDetails(ticket: UserTicketDoc): void {
+    this.selectedTicket.set(ticket);
+    this.detailModalOpen.set(true);
   }
 
   async cancelTicket(ticket: UserTicketDoc): Promise<void> {
@@ -168,6 +323,7 @@ export class Tickets implements OnInit {
       this.tickets.update((list) =>
         list.map((t) => (t.id === ticket.id ? { ...t, status: 'cancelled' as const } : t))
       );
+      this.applyFilters();
     } catch (err) {
       alert('Error cancelling ticket: ' + err);
     }
