@@ -79,7 +79,7 @@ import { Timestamp } from 'firebase/firestore';
                       <div class="action-row" style="justify-content:flex-end;">
                         <button class="btn btn-sm btn-ghost" (click)="viewDetails(ticket)">Details</button>
                         @if (ticket.status === 'valid') {
-                          <button class="btn btn-sm btn-ghost text-error" (click)="cancelTicket(ticket)">Cancel</button>
+                          <button class="btn btn-sm btn-ghost text-error" (click)="confirmCancel(ticket)">Cancel</button>
                         }
                       </div>
                     </td>
@@ -165,6 +165,23 @@ import { Timestamp } from 'firebase/firestore';
         </div>
       </div>
     }
+
+    <!-- Confirm Modal -->
+    @if (confirmModalOpen()) {
+      <div class="modal-backdrop" style="z-index: 1050;">
+        <div class="modal-card" style="max-width:400px; text-align:center; padding: 24px;">
+          <h3 style="margin-bottom:12px; color:var(--color-error);">Cancel Ticket</h3>
+          <p style="margin-bottom:24px; color:var(--color-text-muted);">
+            Are you sure you want to cancel and void ticket <strong style="color:var(--color-text);">{{ ticketToCancel()?.ticketCode }}</strong>?<br/>
+            This action cannot be undone.
+          </p>
+          <div style="display:flex; justify-content:center; gap:12px;">
+            <button class="btn btn-outline" (click)="confirmModalOpen.set(false)">No, Keep It</button>
+            <button class="btn btn-danger" (click)="executeCancel()">Yes, Cancel It</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     .modal-backdrop {
@@ -224,6 +241,9 @@ export class Tickets implements OnInit {
   // Modals
   detailModalOpen = signal(false);
   selectedTicket = signal<UserTicketDoc | null>(null);
+
+  confirmModalOpen = signal(false);
+  ticketToCancel = signal<UserTicketDoc | null>(null);
 
   // Computed Pagination Properties
   get paginatedTickets(): UserTicketDoc[] {
@@ -314,10 +334,15 @@ export class Tickets implements OnInit {
     this.detailModalOpen.set(true);
   }
 
-  async cancelTicket(ticket: UserTicketDoc): Promise<void> {
-    if (!confirm(`Are you sure you want to cancel and void ticket ${ticket.ticketCode}?`)) {
-      return;
-    }
+  confirmCancel(ticket: UserTicketDoc): void {
+    this.ticketToCancel.set(ticket);
+    this.confirmModalOpen.set(true);
+  }
+
+  async executeCancel(): Promise<void> {
+    const ticket = this.ticketToCancel();
+    if (!ticket) return;
+    
     try {
       await this.ticketsSvc.cancelTicket(ticket.id);
       this.tickets.update((list) =>
@@ -326,6 +351,9 @@ export class Tickets implements OnInit {
       this.applyFilters();
     } catch (err) {
       alert('Error cancelling ticket: ' + err);
+    } finally {
+      this.confirmModalOpen.set(false);
+      this.ticketToCancel.set(null);
     }
   }
 

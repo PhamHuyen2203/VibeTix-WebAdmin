@@ -25,27 +25,37 @@ import { Timestamp } from 'firebase/firestore';
       </div>
 
       <!-- Filters -->
-      <div class="card mb-4" style="padding: 16px;">
-        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-          <select
-            class="form-control"
-            [(ngModel)]="selectedScope"
-            style="width:160px; height:38px;"
-          >
-            <option value="">All Scopes</option>
-            <option value="global">Global</option>
-            <option value="event">Event-Specific</option>
-          </select>
-          <button class="btn btn-primary" (click)="loadPromotions()">Filter</button>
+      <div class="filter-bar">
+        <div class="form-control-icon" style="flex:1;max-width:300px;position:relative;">
+          <span class="icon-left" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;color:var(--color-text-muted);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </span>
+          <input type="search" class="form-control input-search" style="padding-left:34px;height:36px;" placeholder="Search by Code or Title..." [(ngModel)]="searchTerm" (input)="applyFilters()" />
         </div>
+        <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="selectedType" (change)="applyFilters()">
+          <option value="">All Types</option>
+          <option value="percentage">Percentage</option>
+          <option value="fixed">Fixed Amount</option>
+        </select>
+        <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="selectedScope" (change)="applyFilters()">
+          <option value="">All Scopes</option>
+          <option value="global">Global</option>
+          <option value="event">Event-Specific</option>
+        </select>
+        <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="selectedStatus" (change)="applyFilters()">
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" (click)="resetFilters()">Clear Filters</button>
       </div>
 
       <!-- Table Card -->
-      <div class="card">
+      <div class="card" style="padding:0;overflow:hidden;">
         @if (loading()) {
           <div style="padding:40px; text-align:center;" class="text-muted">Loading promotions...</div>
         } @else {
-          <div class="table-container" style="border:none; border-radius:0; margin:0;">
+          <div class="table-container" style="border:none; border-radius:0; margin:0; box-shadow:none;">
             <table class="table">
               <thead>
                 <tr>
@@ -62,36 +72,47 @@ import { Timestamp } from 'firebase/firestore';
                 </tr>
               </thead>
               <tbody>
-                @for (promo of promotions(); track promo.id) {
+                @for (promo of paginatedPromotions; track promo.id) {
                   <tr>
                     <td><span class="order-id" style="font-weight:700; color:var(--color-primary);">{{ promo.code }}</span></td>
                     <td>{{ promo.title }}</td>
-                    <td style="text-transform:capitalize;">{{ promo.type }}</td>
+                    <td>
+                      <span class="badge" [ngClass]="promo.type === 'percentage' ? 'badge-info' : 'badge-completed'">
+                        {{ promo.type | uppercase }}
+                      </span>
+                    </td>
                     <td>{{ promo.type === 'percentage' ? promo.value + '%' : formatCurrency(promo.value) }}</td>
                     <td>{{ formatCurrency(promo.minOrderValue) }}</td>
                     <td>{{ promo.usageLimit || 'Unlimited' }}</td>
                     <td>{{ promo.usedCount }}</td>
                     <td class="text-sm text-muted">{{ formatDate(promo.expiryDate) }}</td>
                     <td>
-                      <!-- Toggle active switch -->
-                      <label class="switch">
-                        <input
-                          type="checkbox"
-                          [checked]="promo.isActive"
-                          (change)="toggleActive(promo)"
-                        />
-                        <span class="slider round"></span>
-                      </label>
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="badge" [ngClass]="promo.isActive ? 'badge-completed' : 'badge-gray'">
+                          {{ promo.isActive ? 'ACTIVE' : 'INACTIVE' }}
+                        </span>
+                        <label class="switch">
+                          <input
+                            type="checkbox"
+                            [checked]="promo.isActive"
+                            (change)="toggleActive(promo)"
+                          />
+                          <span class="slider round"></span>
+                        </label>
+                      </div>
                     </td>
                     <td style="text-align:right;">
-                      <button class="btn btn-sm btn-danger" (click)="deleteCoupon(promo)">Delete</button>
+                      <div class="action-row" style="justify-content:flex-end;">
+                        <button class="btn btn-sm btn-ghost" (click)="openEditModal(promo)">Edit</button>
+                        <button class="btn btn-sm btn-ghost text-error" (click)="confirmDelete(promo)">Delete</button>
+                      </div>
                     </td>
                   </tr>
                 }
-                @if (promotions().length === 0) {
+                @if (filteredPromotions().length === 0) {
                   <tr>
                     <td colspan="10" style="text-align:center; padding:48px; color:var(--color-text-muted);">
-                      No promotion codes found.
+                      No promotion codes found matching filters.
                     </td>
                   </tr>
                 }
@@ -100,11 +121,24 @@ import { Timestamp } from 'firebase/firestore';
           </div>
 
           <!-- Pagination -->
-          @if (hasMore()) {
-            <div style="padding:16px; display:flex; justify-content:center; border-top:1px solid var(--color-border);">
-              <button class="btn btn-outline" (click)="loadMore()">Load More</button>
+          <div class="table-footer">
+            <div class="pagination">
+              <button class="pagination-btn" [disabled]="currentPage() === 1" (click)="prevPage()">‹</button>
+              @for (p of getPagesArray(); track p) {
+                <button class="pagination-btn" [class.active]="currentPage() === p" (click)="currentPage.set(p)">{{ p }}</button>
+              }
+              <button class="pagination-btn" [disabled]="currentPage() >= totalPages" (click)="nextPage()">›</button>
             </div>
-          }
+            <div class="rows-per-page">
+              Rows per page
+              <select class="form-control" style="width:70px;height:30px;font-size:12px;padding:2px 8px;" [(ngModel)]="pageSize" (change)="currentPage.set(1)">
+                <option [ngValue]="10">10</option>
+                <option [ngValue]="20">20</option>
+                <option [ngValue]="50">50</option>
+                <option [ngValue]="100">100</option>
+              </select>
+            </div>
+          </div>
         }
       </div>
     </div>
@@ -114,7 +148,7 @@ import { Timestamp } from 'firebase/firestore';
       <div class="modal-backdrop">
         <div class="modal-card" style="max-width:520px;">
           <div class="modal-header">
-            <h3>Create Promotion Coupon</h3>
+            <h3>{{ editingPromoId ? 'Edit Promotion Coupon' : 'Create Promotion Coupon' }}</h3>
             <button class="btn-icon" (click)="createModalOpen.set(false)">×</button>
           </div>
           <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
@@ -190,7 +224,24 @@ import { Timestamp } from 'firebase/firestore';
           </div>
           <div class="modal-footer" style="display:flex; justify-content:end; gap:8px;">
             <button class="btn btn-outline" (click)="createModalOpen.set(false)">Cancel</button>
-            <button class="btn btn-primary" (click)="saveCoupon()">Create Coupon</button>
+            <button class="btn btn-primary" (click)="saveCoupon()">{{ editingPromoId ? 'Save Changes' : 'Create Coupon' }}</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Confirm Modal -->
+    @if (confirmModalOpen()) {
+      <div class="modal-backdrop" style="z-index: 1050;">
+        <div class="modal-card" style="max-width:400px; text-align:center; padding: 24px;">
+          <h3 style="margin-bottom:12px; color:var(--color-error);">Delete Promotion</h3>
+          <p style="margin-bottom:24px; color:var(--color-text-muted);">
+            Are you sure you want to delete coupon <strong style="color:var(--color-text);">{{ promoToDelete()?.code }}</strong>?<br/>
+            This action cannot be undone.
+          </p>
+          <div style="display:flex; justify-content:center; gap:12px;">
+            <button class="btn btn-outline" (click)="confirmModalOpen.set(false)">No, Cancel</button>
+            <button class="btn btn-danger" (click)="executeDelete()">Yes, Delete</button>
           </div>
         </div>
       </div>
@@ -276,18 +327,54 @@ export class Promotions implements OnInit {
   private promotionsSvc = inject(PromotionsService);
 
   promotions = signal<PromotionDoc[]>([]);
+  filteredPromotions = signal<PromotionDoc[]>([]);
   loading = signal(true);
-  hasMore = signal(false);
-  lastDoc: any = null;
+
+  // Pagination
+  currentPage = signal(1);
+  pageSize = signal(20);
 
   // Filters
+  searchTerm = '';
   selectedScope = '';
+  selectedType = '';
+  selectedStatus = '';
 
-  // Modal create
+  // Modal create/edit
   createModalOpen = signal(false);
+  editingPromoId: string | null = null;
   newCoupon: Omit<PromotionDoc, 'id'> = this.getEmptyCoupon();
   startDateStr = '';
   expiryDateStr = '';
+
+  confirmModalOpen = signal(false);
+  promoToDelete = signal<PromotionDoc | null>(null);
+
+  // Computed Pagination Properties
+  get paginatedPromotions(): PromotionDoc[] {
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredPromotions().slice(start, start + this.pageSize());
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredPromotions().length / this.pageSize()) || 1;
+  }
+
+  nextPage(): void {
+    if (this.currentPage() < this.totalPages) this.currentPage.update((p) => p + 1);
+  }
+
+  prevPage(): void {
+    if (this.currentPage() > 1) this.currentPage.update((p) => p - 1);
+  }
+
+  getPagesArray(): number[] {
+    const pages = [];
+    for (let i = 1; i <= this.totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
 
   ngOnInit(): void {
     this.loadPromotions();
@@ -314,22 +401,15 @@ export class Promotions implements OnInit {
     };
   }
 
-  async loadPromotions(append = false): Promise<void> {
-    this.loading.set(!append);
+  async loadPromotions(): Promise<void> {
+    this.loading.set(true);
     try {
       const res = await this.promotionsSvc.getPromotions({
-        pageSize: 20,
-        scope: this.selectedScope || undefined,
-        cursor: append ? this.lastDoc : undefined,
+        pageSize: 1000,
       });
 
-      if (append) {
-        this.promotions.update((prev) => [...prev, ...res.items]);
-      } else {
-        this.promotions.set(res.items);
-      }
-      this.hasMore.set(res.hasMore);
-      this.lastDoc = res.lastDoc;
+      this.promotions.set(res.items);
+      this.applyFilters();
     } catch (err) {
       console.error(err);
     } finally {
@@ -337,16 +417,68 @@ export class Promotions implements OnInit {
     }
   }
 
-  loadMore(): void {
-    if (this.hasMore()) {
-      this.loadPromotions(true);
+  applyFilters(): void {
+    let list = this.promotions();
+
+    if (this.searchTerm.trim()) {
+      const term = this.searchTerm.toLowerCase().trim();
+      list = list.filter((p) => 
+        (p.code || '').toLowerCase().includes(term) || 
+        (p.title || '').toLowerCase().includes(term)
+      );
     }
+
+    if (this.selectedScope) {
+      list = list.filter((p) => p.scope === this.selectedScope);
+    }
+
+    if (this.selectedType) {
+      list = list.filter((p) => p.type === this.selectedType);
+    }
+
+    if (this.selectedStatus) {
+      const isActiveFilter = this.selectedStatus === 'active';
+      list = list.filter((p) => p.isActive === isActiveFilter);
+    }
+
+    // Sort newest first
+    list.sort((a, b) => {
+      const dateA = a.startDate instanceof Timestamp ? a.startDate.toDate().getTime() : (a.startDate ? new Date(a.startDate).getTime() : 0);
+      const dateB = b.startDate instanceof Timestamp ? b.startDate.toDate().getTime() : (b.startDate ? new Date(b.startDate).getTime() : 0);
+      return dateB - dateA;
+    });
+
+    this.filteredPromotions.set(list);
+    this.currentPage.set(1);
+  }
+
+  resetFilters(): void {
+    this.searchTerm = '';
+    this.selectedScope = '';
+    this.selectedType = '';
+    this.selectedStatus = '';
+    this.applyFilters();
   }
 
   openCreateModal(): void {
+    this.editingPromoId = null;
     this.newCoupon = this.getEmptyCoupon();
     this.startDateStr = '';
     this.expiryDateStr = '';
+    this.createModalOpen.set(true);
+  }
+
+  openEditModal(promo: PromotionDoc): void {
+    this.editingPromoId = promo.id;
+    this.newCoupon = { ...promo };
+    
+    // Format dates for input type="date"
+    const start = promo.startDate instanceof Timestamp ? promo.startDate.toDate() : (promo.startDate ? new Date(promo.startDate) : null);
+    const end = promo.expiryDate instanceof Timestamp ? promo.expiryDate.toDate() : (promo.expiryDate ? new Date(promo.expiryDate) : null);
+    
+    this.startDateStr = start ? start.toISOString().split('T')[0] : '';
+    this.expiryDateStr = end ? end.toISOString().split('T')[0] : '';
+    
     this.createModalOpen.set(true);
   }
 
@@ -360,11 +492,15 @@ export class Promotions implements OnInit {
       this.newCoupon.startDate = this.startDateStr ? Timestamp.fromDate(new Date(this.startDateStr)) : Timestamp.now();
       this.newCoupon.expiryDate = this.expiryDateStr ? Timestamp.fromDate(new Date(this.expiryDateStr)) : Timestamp.now();
 
-      await this.promotionsSvc.createPromotion(this.newCoupon);
+      if (this.editingPromoId) {
+        await this.promotionsSvc.updatePromotion(this.editingPromoId, this.newCoupon);
+      } else {
+        await this.promotionsSvc.createPromotion(this.newCoupon);
+      }
       this.createModalOpen.set(false);
       this.loadPromotions();
     } catch (err) {
-      alert('Error creating coupon: ' + err);
+      alert('Error saving coupon: ' + err);
     }
   }
 
@@ -374,20 +510,30 @@ export class Promotions implements OnInit {
       this.promotions.update((list) =>
         list.map((p) => (p.id === promo.id ? { ...p, isActive: !p.isActive } : p))
       );
+      this.applyFilters();
     } catch (err) {
       alert('Error toggling state: ' + err);
     }
   }
 
-  async deleteCoupon(promo: PromotionDoc): Promise<void> {
-    if (!confirm(`Are you sure you want to delete coupon ${promo.code}?`)) {
-      return;
-    }
+  confirmDelete(promo: PromotionDoc): void {
+    this.promoToDelete.set(promo);
+    this.confirmModalOpen.set(true);
+  }
+
+  async executeDelete(): Promise<void> {
+    const promo = this.promoToDelete();
+    if (!promo) return;
+    
     try {
       await this.promotionsSvc.deletePromotion(promo.id);
       this.promotions.update((list) => list.filter((p) => p.id !== promo.id));
+      this.applyFilters();
     } catch (err) {
       alert('Error deleting coupon: ' + err);
+    } finally {
+      this.confirmModalOpen.set(false);
+      this.promoToDelete.set(null);
     }
   }
 
