@@ -322,7 +322,7 @@ export class DashboardService {
         const data = d.data();
         return {
           id: d.id,
-          name: data['name'] || data['businessName'] || 'Unknown',
+          name: data['brand_name'] || data['brandName'] || data['name'] || data['businessName'] || 'Unknown',
           revenue: data['revenue30d'] || Math.floor(Math.random() * 80000),
           eventsCount: data['eventsCount'] || Math.floor(Math.random() * 10) + 1
         };
