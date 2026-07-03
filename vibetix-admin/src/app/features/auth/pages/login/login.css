@@ -54,8 +54,11 @@
 .logo {
   height: 40px;
   width: auto;
-  max-width: 200px;
+  max-width: 100%;
   object-fit: contain;
+  transform: scale(3.5);
+  transform-origin: left center;
+  margin-left: 20px;
 }
 
 /* Hero */
@@ -299,14 +302,18 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  align-items: center;
+  text-align: center;
 }
 
 .form-logo {
-  height: 32px;
+  height: 35px;
   width: auto;
-  max-width: 150px;
+  max-width: 100%;
   object-fit: contain;
-  margin-bottom: 8px;
+  margin-bottom: 24px;
+  transform: scale(2.2);
+  transform-origin: center center;
 }
 
 .form-title {

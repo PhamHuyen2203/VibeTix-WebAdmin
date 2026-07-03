@@ -63,7 +63,7 @@ interface AdminDoc {
                     <td><span class="text-muted" style="font-family:monospace; font-size:12px;">{{ admin.user_id }}</span></td>
                     <td style="text-align:right;">
                       @if (admin.role !== 'superAdmin') {
-                        <button class="btn btn-sm btn-danger" (click)="removeAdmin(admin)">Remove</button>
+                        <button class="btn btn-sm btn-danger" (click)="confirmRemove(admin)">Remove</button>
                       } @else {
                         <span class="text-muted">—</span>
                       }
@@ -146,6 +146,40 @@ interface AdminDoc {
           <div class="modal-footer" style="display:flex; justify-content:end; gap:8px;">
             <button class="btn btn-outline" (click)="addModalOpen.set(false)">Cancel</button>
             <button class="btn btn-primary" (click)="saveAdmin()">Add Administrator</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Confirm Remove Modal -->
+    @if (confirmModalOpen()) {
+      <div class="modal-backdrop" style="z-index: 1050;">
+        <div class="modal-card" style="max-width:400px; text-align:center; padding: 24px;">
+          <h3 style="margin-bottom:12px; color:var(--color-error);">Remove Administrator</h3>
+          <p style="margin-bottom:24px; color:var(--color-text-muted);">
+            Are you sure you want to remove administrator <strong style="color:var(--color-text);">{{ adminToRemove()?.email }}</strong>?<br/>
+            This action cannot be undone.
+          </p>
+          <div style="display:flex; justify-content:center; gap:12px;">
+            <button class="btn btn-outline" (click)="confirmModalOpen.set(false)">Cancel</button>
+            <button class="btn btn-danger" (click)="executeRemove()">Yes, Remove</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Alert Modal -->
+    @if (alertModalOpen()) {
+      <div class="modal-backdrop" style="z-index: 1060;">
+        <div class="modal-card" style="max-width:400px; text-align:center; padding: 24px;">
+          <h3 style="margin-bottom:12px;" [style.color]="alertIsError() ? 'var(--color-error)' : 'var(--color-success)'">
+            {{ alertIsError() ? 'Error' : 'Notification' }}
+          </h3>
+          <p style="margin-bottom:24px; color:var(--color-text-muted);">
+            {{ alertMessage() }}
+          </p>
+          <div style="display:flex; justify-content:center;">
+            <button class="btn btn-primary" (click)="alertModalOpen.set(false)">OK</button>
           </div>
         </div>
       </div>
@@ -237,6 +271,19 @@ export class Settings implements OnInit {
     full_name: '',
   };
 
+  confirmModalOpen = signal(false);
+  adminToRemove = signal<AdminDoc | null>(null);
+
+  alertModalOpen = signal(false);
+  alertMessage = signal('');
+  alertIsError = signal(false);
+
+  showAlert(msg: string, isError = false): void {
+    this.alertMessage.set(msg);
+    this.alertIsError.set(isError);
+    this.alertModalOpen.set(true);
+  }
+
   ngOnInit(): void {
     this.loadAdmins();
   }
@@ -274,7 +321,7 @@ export class Settings implements OnInit {
 
   async saveAdmin(): Promise<void> {
     if (!this.newAdmin.email || !this.newAdmin.user_id) {
-      alert('Email and User ID are required.');
+      this.showAlert('Email and User ID are required.', true);
       return;
     }
     try {
@@ -290,19 +337,27 @@ export class Settings implements OnInit {
       this.addModalOpen.set(false);
       this.loadAdmins();
     } catch (err) {
-      alert('Error adding admin: ' + err);
+      this.showAlert('Error adding admin: ' + err, true);
     }
   }
 
-  async removeAdmin(admin: AdminDoc): Promise<void> {
-    if (!confirm(`Are you sure you want to remove administrator ${admin.email}?`)) {
-      return;
-    }
+  confirmRemove(admin: AdminDoc): void {
+    this.adminToRemove.set(admin);
+    this.confirmModalOpen.set(true);
+  }
+
+  async executeRemove(): Promise<void> {
+    const admin = this.adminToRemove();
+    if (!admin) return;
+    
     try {
       await deleteDoc(doc(firebaseDb, COLLECTIONS.admins, admin.id));
       this.admins.update((list) => list.filter((a) => a.id !== admin.id));
     } catch (err) {
-      alert('Error removing admin: ' + err);
+      this.showAlert('Error removing admin: ' + err, true);
+    } finally {
+      this.confirmModalOpen.set(false);
+      this.adminToRemove.set(null);
     }
   }
 

@@ -5,8 +5,9 @@ import {
   onAuthStateChanged,
   User,
   sendPasswordResetEmail,
+  updateProfile,
 } from 'firebase/auth';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { firebaseAuth, firebaseDb } from '../firebase/firebase.client';
 import { COLLECTIONS } from '../firebase/collections';
 
@@ -79,6 +80,7 @@ export class AuthService {
     return {
       email: data['email'],
       displayName: data['full_name'] || data['displayName'] || 'Admin',
+      photoURL: data['photoURL'] || '',
       role: (data['role'] === 'superadmin' ? 'superAdmin' : data['role']) as any,
       createdAt: data['created_at']?.toDate() || data['createdAt']?.toDate() || new Date(),
     };
@@ -113,6 +115,40 @@ export class AuthService {
     this.currentUser.set(null);
     this.adminProfile.set(null);
     this.isAdmin.set(false);
+  }
+
+  async updateAdminProfile(displayName: string, photoURL?: string): Promise<void> {
+    const user = this.currentUser();
+    if (!user) return;
+
+    // Update Firebase Auth Profile
+    await updateProfile(user, {
+      displayName: displayName,
+      ...(photoURL ? { photoURL } : {})
+    });
+
+    // Update Firestore Document
+    const adminsRef = collection(firebaseDb, COLLECTIONS.admins);
+    const q = query(adminsRef, where('user_id', '==', user.uid));
+    const snap = await getDocs(q);
+    
+    if (!snap.empty) {
+      const docRef = snap.docs[0].ref;
+      await updateDoc(docRef, {
+        full_name: displayName,
+        ...(photoURL ? { photoURL } : {})
+      });
+    }
+
+    // Update Local Signal
+    const currentProfile = this.adminProfile();
+    if (currentProfile) {
+      this.adminProfile.set({
+        ...currentProfile,
+        displayName: displayName,
+        ...(photoURL ? { photoURL } : {})
+      });
+    }
   }
 
   async sendPasswordReset(email: string): Promise<void> {
