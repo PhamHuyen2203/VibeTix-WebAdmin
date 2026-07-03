@@ -66,19 +66,33 @@ export class OrganizersService {
       snap = await getDocs(query(this.col, limit(pageSize + 1)));
     }
 
-    // Fetch all events and orders to aggregate eventsCount & revenue for each organizer
+    // Fetch all events, orders, and order_items to aggregate eventsCount & revenue
     const eventsCol = collection(firebaseDb, COLLECTIONS.events);
     const ordersCol = collection(firebaseDb, COLLECTIONS.orders);
-    let eventsSnap, ordersSnap;
+    const orderItemsCol = collection(firebaseDb, 'order_items');
+    
+    let eventsSnap, ordersSnap, orderItemsSnap;
     try {
-      [eventsSnap, ordersSnap] = await Promise.all([getDocs(eventsCol), getDocs(ordersCol)]);
+      [eventsSnap, ordersSnap, orderItemsSnap] = await Promise.all([
+        getDocs(eventsCol), 
+        getDocs(ordersCol),
+        getDocs(orderItemsCol)
+      ]);
     } catch(e) {
       eventsSnap = { docs: [] };
       ordersSnap = { docs: [] };
+      orderItemsSnap = { docs: [] };
     }
 
+    // Map order_id -> status
+    const orderStatusMap: Record<string, string> = {};
+    (ordersSnap as any).docs.forEach((d: any) => {
+      const data = d.data();
+      const id = data['order_id'] || d.id;
+      orderStatusMap[id] = (data['status'] || '').toLowerCase();
+    });
+
     // Build event→organizer mapping using ALL possible ID fields
-    // Key: any possible event identifier, Value: organizer ID
     const eventOrgMap: Record<string, string> = {};
     const organizerStats: Record<string, { eventsCount: number; totalRevenue: number }> = {};
     
@@ -89,7 +103,6 @@ export class OrganizersService {
       const docId = d.id;
       
       if (orgId) {
-        // Map BOTH the document ID and the event_id field to this organizer
         if (docId) eventOrgMap[docId] = orgId;
         if (eventIdField) eventOrgMap[eventIdField] = orgId;
         
@@ -100,35 +113,28 @@ export class OrganizersService {
       }
     });
 
-    // Sum revenue per organizer from orders
-    (ordersSnap as any).docs.forEach((d: any) => {
-      const data = d.data();
-      const status = (data['status'] || '').toLowerCase();
+    // Sum revenue per organizer from order_items
+    (orderItemsSnap as any).docs.forEach((d: any) => {
+      const item = d.data();
+      const orderId = item['order_id'] || '';
+      const status = orderStatusMap[orderId];
+      
       if (status !== 'completed' && status !== 'confirmed') return;
       
-      // Try all possible event ID fields in the order
-      const evId = data['event_id'] || data['eventId'] || '';
+      const evId = item['event_id'] || '';
+      if (!evId) return;
+
       const orgId = eventOrgMap[evId];
       if (!orgId) return;
-      
-      // Calculate amount from items array or total fields
-      let amount = 0;
-      const items = data['items'] || data['order_items'] || [];
-      if (Array.isArray(items) && items.length > 0) {
-        amount = items.reduce((sum: number, item: any) => {
-          const qty = Number(item.quantity || item.qty || 0);
-          const price = Number(item.unitPrice || item.unit_price || item.price || 0);
-          return sum + (qty * price);
-        }, 0);
-      }
-      if (amount === 0) {
-        amount = Number(data['total_amount'] || data['amount'] || data['totalAmount'] || 0);
-      }
-      
+
+      const qty = Number(item['quantity'] || 1);
+      const price = Number(item['price_per_ticket'] || 0);
+      const itemTotal = qty * price;
+
       if (!organizerStats[orgId]) {
         organizerStats[orgId] = { eventsCount: 0, totalRevenue: 0 };
       }
-      organizerStats[orgId].totalRevenue += amount;
+      organizerStats[orgId].totalRevenue += itemTotal;
     });
 
     const docs = snap.docs;

@@ -13,6 +13,7 @@ import { DashboardService } from '../../core/services/dashboard.service';
 import { OrderDoc } from '../../core/models/order.model';
 import { Timestamp } from 'firebase/firestore';
 import { Chart, registerables } from 'chart.js';
+import { debugFirestoreData } from './debug-firestore';
 
 Chart.register(...registerables);
 
@@ -88,6 +89,9 @@ export class Dashboard implements OnInit, AfterViewInit {
   }
 
   async ngOnInit(): Promise<void> {
+    // DEBUG: Inspect Firestore data structure
+    debugFirestoreData().catch(e => console.warn('debug failed', e));
+    
     try {
       await this.dashSvc.loadDashboard();
       // Store base revenue for time range calculations
