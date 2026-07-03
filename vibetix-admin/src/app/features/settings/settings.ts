@@ -84,7 +84,7 @@ interface AdminDoc {
                 <p class="font-semibold" style="margin:0;">Firebase Project ID</p>
                 <p class="text-xs text-muted" style="margin:0;">Active database target</p>
               </div>
-              <span class="badge badge-info" style="font-family:monospace;">mobile-5f256</span>
+              <span class="badge badge-info" style="font-family:monospace;">mobile-61a6c</span>
             </div>
             
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--color-border); padding-bottom:12px;">

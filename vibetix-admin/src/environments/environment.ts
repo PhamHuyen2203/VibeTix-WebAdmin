@@ -1,13 +1,13 @@
 export const environment = {
     production: false,
     firebase: {
-        apiKey: "AIzaSyCQw5XQ66PhGCJW_nJqfB3AQeGdtpDwNuM",
-        authDomain: "mobile-5f256.firebaseapp.com",
-        databaseURL: "https://mobile-5f256-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "mobile-5f256",
-        storageBucket: "mobile-5f256.firebasestorage.app",
-        messagingSenderId: "516398944660",
-        appId: "1:516398944660:web:d3dae180ec979d723c3f81",
-        measurementId: "G-BCBE5ZEPFF"
+        apiKey: "AIzaSyAguBM5OaU6po0T3kQ4ffl1pHwyUdNkZ7M",
+        authDomain: "mobile-61a6c.firebaseapp.com",
+        databaseURL: "https://mobile-61a6c-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "mobile-61a6c",
+        storageBucket: "mobile-61a6c.firebasestorage.app",
+        messagingSenderId: "1871784846",
+        appId: "1:1871784846:web:39323b922bfcc935e492df",
+        measurementId: "G-3DJ3TQYPR0"
     }
 };

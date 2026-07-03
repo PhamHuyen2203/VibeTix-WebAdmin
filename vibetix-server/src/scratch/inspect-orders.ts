@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 
 admin.initializeApp({
-  projectId: 'mobile-5f256',
+  projectId: 'mobile-61a6c',
   credential: admin.credential.applicationDefault(),
 });
 

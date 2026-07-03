@@ -12,11 +12,11 @@
     "clean": "node -e \"require('fs').rmSync('lib', { recursive: true, force: true })\"",
     "build": "npm run clean && tsc",
     "watch": "tsc --watch",
-    "serve": "npm run build && firebase emulators:start --only functions --config ../firebase.json --project mobile-5f256",
-    "shell": "npm run build && firebase functions:shell --config ../firebase.json --project mobile-5f256",
+    "serve": "npm run build && firebase emulators:start --only functions --config ../firebase.json --project mobile-61a6c",
+    "shell": "npm run build && firebase functions:shell --config ../firebase.json --project mobile-61a6c",
     "start": "npm run serve",
-    "deploy": "npm run build && firebase deploy --only functions --config ../firebase.json --project mobile-5f256",
-    "logs": "firebase functions:log --project mobile-5f256"
+    "deploy": "npm run build && firebase deploy --only functions --config ../firebase.json --project mobile-61a6c",
+    "logs": "firebase functions:log --project mobile-61a6c"
   },
   "keywords": [],
   "author": "",
