@@ -35,7 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp({
-    projectId: 'mobile-5f256',
+    projectId: 'mobile-61a6c',
     credential: admin.credential.applicationDefault(),
 });
 const db = admin.firestore();

@@ -559,10 +559,15 @@ export class Events implements OnInit {
     this.applyFilters();
   }
 
-  formatDate(ts: Timestamp | Date | undefined): string {
+  formatDate(ts: any): string {
     if (!ts) return '—';
-    const d = ts instanceof Timestamp ? ts.toDate() : ts;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    try {
+      const d = ts instanceof Timestamp ? ts.toDate() : (typeof ts === 'string' || typeof ts === 'number' ? new Date(ts) : ts);
+      if (!(d instanceof Date) || isNaN(d.getTime())) return '—';
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '—';
+    }
   }
 
   getStatusClass(status: EventStatus): string {
