@@ -35,48 +35,64 @@ export class OrganizersService {
   private col = collection(firebaseDb, COLLECTIONS.organizers);
 
   async loadCounts(): Promise<void> {
-    const [pending, verified] = await Promise.all([
-      getCountFromServer(query(this.col, where('is_verified', '==', false))),
-      getCountFromServer(query(this.col, where('is_verified', '==', true))),
-    ]);
-    this.pendingCount.set(pending.data().count);
-    this.verifiedCount.set(verified.data().count);
-    this.suspendedCount.set(0); // no suspended state in db
+    try {
+      const allDocs = await getDocs(this.col);
+      let pending = 0, verified = 0, suspended = 0;
+      allDocs.docs.forEach(d => {
+        const data = d.data();
+        const isVerified = data['is_verified'] || false;
+        const status = (data['status'] || '').toLowerCase();
+        if (status === 'suspended') suspended++;
+        else if (isVerified || status === 'verified') verified++;
+        else pending++;
+      });
+      this.pendingCount.set(pending);
+      this.verifiedCount.set(verified);
+      this.suspendedCount.set(suspended);
+    } catch(e) {
+      console.warn('OrganizersService.loadCounts failed:', e);
+    }
   }
 
   async getOrganizers(params: OrganizerQuery): Promise<PaginatedResult<OrganizerProfile>> {
     const pageSize = params.pageSize ?? 10;
-    let q = query(this.col, orderBy('created_at', 'desc'), limit(pageSize + 1));
-
-    if (params.cursor) {
-      q = query(q, startAfter(params.cursor));
+    
+    // Fetch organizers
+    let snap;
+    try {
+      const q = query(this.col, orderBy('created_at', 'desc'), limit(pageSize + 1));
+      snap = await getDocs(params.cursor ? query(q, startAfter(params.cursor)) : q);
+    } catch(e) {
+      snap = await getDocs(query(this.col, limit(pageSize + 1)));
     }
 
     // Fetch all events and orders to aggregate eventsCount & revenue for each organizer
     const eventsCol = collection(firebaseDb, COLLECTIONS.events);
     const ordersCol = collection(firebaseDb, COLLECTIONS.orders);
-    const [snap, eventsSnap, ordersSnap] = await Promise.all([
-      getDocs(q),
-      getDocs(eventsCol),
-      getDocs(ordersCol),
-    ]);
+    let eventsSnap, ordersSnap;
+    try {
+      [eventsSnap, ordersSnap] = await Promise.all([getDocs(eventsCol), getDocs(ordersCol)]);
+    } catch(e) {
+      eventsSnap = { docs: [] };
+      ordersSnap = { docs: [] };
+    }
 
-    // Map event ID to organizer ID
+    // Build event→organizer mapping using ALL possible ID fields
+    // Key: any possible event identifier, Value: organizer ID
     const eventOrgMap: Record<string, string> = {};
-    eventsSnap.docs.forEach((doc) => {
-      const data = doc.data();
-      const orgId = data['organizer_id'] || data['organizerId'] || '';
-      const evId = data['event_id'] || doc.id;
-      if (orgId && evId) {
-        eventOrgMap[evId] = orgId;
-      }
-    });
-
     const organizerStats: Record<string, { eventsCount: number; totalRevenue: number }> = {};
-    eventsSnap.docs.forEach((doc) => {
-      const data = doc.data();
+    
+    (eventsSnap as any).docs.forEach((d: any) => {
+      const data = d.data();
       const orgId = data['organizer_id'] || data['organizerId'] || '';
+      const eventIdField = data['event_id'] || '';
+      const docId = d.id;
+      
       if (orgId) {
+        // Map BOTH the document ID and the event_id field to this organizer
+        if (docId) eventOrgMap[docId] = orgId;
+        if (eventIdField) eventOrgMap[eventIdField] = orgId;
+        
         if (!organizerStats[orgId]) {
           organizerStats[orgId] = { eventsCount: 0, totalRevenue: 0 };
         }
@@ -84,19 +100,35 @@ export class OrganizersService {
       }
     });
 
-    ordersSnap.docs.forEach((doc) => {
-      const data = doc.data();
+    // Sum revenue per organizer from orders
+    (ordersSnap as any).docs.forEach((d: any) => {
+      const data = d.data();
       const status = (data['status'] || '').toLowerCase();
-      if (status !== 'completed') return;
-      const evId = data['event_id'] || '';
+      if (status !== 'completed' && status !== 'confirmed') return;
+      
+      // Try all possible event ID fields in the order
+      const evId = data['event_id'] || data['eventId'] || '';
       const orgId = eventOrgMap[evId];
-      const amount = Number(data['total_amount'] || data['amount'] || 0);
-      if (orgId) {
-        if (!organizerStats[orgId]) {
-          organizerStats[orgId] = { eventsCount: 0, totalRevenue: 0 };
-        }
-        organizerStats[orgId].totalRevenue += amount;
+      if (!orgId) return;
+      
+      // Calculate amount from items array or total fields
+      let amount = 0;
+      const items = data['items'] || data['order_items'] || [];
+      if (Array.isArray(items) && items.length > 0) {
+        amount = items.reduce((sum: number, item: any) => {
+          const qty = Number(item.quantity || item.qty || 0);
+          const price = Number(item.unitPrice || item.unit_price || item.price || 0);
+          return sum + (qty * price);
+        }, 0);
       }
+      if (amount === 0) {
+        amount = Number(data['total_amount'] || data['amount'] || data['totalAmount'] || 0);
+      }
+      
+      if (!organizerStats[orgId]) {
+        organizerStats[orgId] = { eventsCount: 0, totalRevenue: 0 };
+      }
+      organizerStats[orgId].totalRevenue += amount;
     });
 
     const docs = snap.docs;
@@ -104,8 +136,10 @@ export class OrganizersService {
     const items = docs.slice(0, pageSize).map((d) => {
       const org = this.mapOrganizerDoc(d.id, d.data());
       const stats = organizerStats[org.id] || { eventsCount: 0, totalRevenue: 0 };
-      org.eventsCount = stats.eventsCount;
-      org.revenue30d = stats.totalRevenue;
+      // Also check by Firestore doc ID in case org.id differs
+      const statsByDocId = organizerStats[d.id] || { eventsCount: 0, totalRevenue: 0 };
+      org.eventsCount = Math.max(stats.eventsCount, statsByDocId.eventsCount);
+      org.revenue30d = Math.max(stats.totalRevenue, statsByDocId.totalRevenue);
       return org;
     });
 

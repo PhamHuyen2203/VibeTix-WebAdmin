@@ -89,7 +89,7 @@
       <div class="stat-card">
         <div class="stat-card-header">
           <div>
-            <p class="stat-card-label">Revenue (30D)</p>
+            <p class="stat-card-label">Revenue</p>
             <p class="stat-card-value">{{ formatCurrency(stats()!.revenue30d) }}</p>
           </div>
           <div class="stat-card-icon" style="background:rgba(95,215,136,0.10)">
@@ -104,7 +104,7 @@
       <div class="stat-card">
         <div class="stat-card-header">
           <div>
-            <p class="stat-card-label">Tickets Sold (30D)</p>
+            <p class="stat-card-label">Tickets Sold</p>
             <p class="stat-card-value">{{ stats()!.ticketsSold30d.toLocaleString() }}</p>
           </div>
           <div class="stat-card-icon" style="background:rgba(34,108,235,0.08)">
@@ -145,10 +145,10 @@
             </p>
           }
         </div>
-        <select class="form-control" style="width:130px;height:32px;font-size:12px;">
-          <option>Last 30 days</option>
-          <option>Last 90 days</option>
-          <option>Last year</option>
+        <select class="form-control" style="width:130px;height:32px;font-size:12px;" (change)="onTimeRangeChange($event)">
+          <option value="30d">Last 30 days</option>
+          <option value="90d">Last 90 days</option>
+          <option value="1y">Last year</option>
         </select>
       </div>
       <div class="chart-container">
@@ -168,7 +168,7 @@
         <div class="chart-container donut-container">
           <canvas #donutChart></canvas>
           <div class="donut-center-label">
-            <span class="donut-total">{{ stats()?.ticketsSold30d?.toLocaleString() ?? '0' }}</span>
+            <span class="donut-total">{{ getDonutTotal() }}</span>
             <span class="donut-total-label">Total</span>
           </div>
         </div>
@@ -205,6 +205,67 @@
         @if (pendingApprovals().length === 0 && !loading()) {
           <p class="text-muted text-sm text-center" style="padding:20px 0;">No pending approvals 🎉</p>
         }
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics Grid (Top Events / Organizers) -->
+  <div class="dashboard-bottom-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 20px;">
+    <!-- Top Events -->
+    <div class="card">
+      <div class="card-header">
+        <p class="card-title">Top 5 Events by Revenue</p>
+        <a routerLink="/events" class="text-primary text-sm font-medium">View all</a>
+      </div>
+      <div class="table-container" style="border:none;border-radius:0;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Event Name</th>
+              <th>Organizer</th>
+              <th>Sold</th>
+              <th>Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (ev of topEvents(); track ev.id) {
+              <tr>
+                <td class="font-medium text-sm">{{ ev.title }}</td>
+                <td class="text-xs text-muted">{{ ev.organizerName }}</td>
+                <td>{{ ev.ticketsSold }}</td>
+                <td class="font-semibold text-primary">{{ formatCurrency(ev.revenue) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Top Organizers -->
+    <div class="card">
+      <div class="card-header">
+        <p class="card-title">Top Performing Organizers</p>
+        <a routerLink="/organizers" class="text-primary text-sm font-medium">View all</a>
+      </div>
+      <div class="table-container" style="border:none;border-radius:0;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Organizer</th>
+              <th>Events</th>
+              <th>Revenue (30D)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (org of topOrganizers(); track org.id) {
+              <tr>
+                <td class="font-medium text-sm">{{ org.name }}</td>
+                <td>{{ org.eventsCount }}</td>
+                <td class="font-semibold" style="color:var(--color-success)">{{ formatCurrency(org.revenue) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
     </div>
   </div>

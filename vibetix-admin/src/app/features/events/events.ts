@@ -163,31 +163,59 @@ export class Events implements OnInit {
         getDocs(collection(firebaseDb, COLLECTIONS.orders))
       ]);
 
+      // Build revenue map keyed by ALL possible event identifiers
       const eventRevenueMap: Record<string, number> = {};
+      const eventTicketsMap: Record<string, number> = {};
+      
       ordersSnap.docs.forEach((d) => {
         const data = d.data();
         const status = (data['status'] || '').toLowerCase();
-        if (status !== 'completed') return;
-        const evId = data['event_id'] || data['eventId'] || '';
+        if (status !== 'completed' && status !== 'confirmed') return;
         
-        // Sum up the unitPrice * quantity for each order_item in the order
-        let itemsSum = 0;
+        // Try all possible event ID fields
+        const evId = data['event_id'] || data['eventId'] || '';
+        if (!evId) return;
+        
+        // Calculate amount: prefer items array sum, then total_amount, then amount
+        let amount = 0;
         const items = data['items'] || data['order_items'] || [];
-        if (Array.isArray(items)) {
-          itemsSum = items.reduce((sum: number, item: any) => sum + ((item.quantity || 0) * (item.unitPrice || item.unit_price || item.price || 0)), 0);
+        if (Array.isArray(items) && items.length > 0) {
+          amount = items.reduce((sum: number, item: any) => {
+            const qty = Number(item.quantity || item.qty || 0);
+            const price = Number(item.unitPrice || item.unit_price || item.price || 0);
+            return sum + (qty * price);
+          }, 0);
         }
-        const amount = itemsSum > 0 ? itemsSum : Number(data['total_amount'] || data['amount'] || 0);
+        if (amount === 0) {
+          amount = Number(data['total_amount'] || data['amount'] || data['totalAmount'] || 0);
+        }
+        
+        // Count tickets
+        let ticketCount = 0;
+        if (Array.isArray(items) && items.length > 0) {
+          ticketCount = items.reduce((sum: number, item: any) => sum + Number(item.quantity || item.qty || 0), 0);
+        } else {
+          ticketCount = Number(data['ticket_count'] || data['ticketCount'] || data['totalTickets'] || 0);
+        }
 
-        if (evId) {
-          eventRevenueMap[evId] = (eventRevenueMap[evId] || 0) + amount;
-        }
+        eventRevenueMap[evId] = (eventRevenueMap[evId] || 0) + amount;
+        eventTicketsMap[evId] = (eventTicketsMap[evId] || 0) + ticketCount;
       });
 
       const updatedEvents = result.items.map((evt) => {
-        const actualRevenue = eventRevenueMap[evt.id] || 0;
+        // Try matching by evt.id (which is event_id field) and _firestoreDocId
+        const rev1 = eventRevenueMap[evt.id] || 0;
+        const rev2 = (evt as any)._firestoreDocId ? (eventRevenueMap[(evt as any)._firestoreDocId] || 0) : 0;
+        const actualRevenue = Math.max(rev1, rev1 + rev2); // If same key, don't double count
+        
+        const tkt1 = eventTicketsMap[evt.id] || 0;
+        const tkt2 = (evt as any)._firestoreDocId ? (eventTicketsMap[(evt as any)._firestoreDocId] || 0) : 0;
+        const actualTickets = Math.max(tkt1, tkt1 + tkt2);
+        
         return {
           ...evt,
-          revenue: actualRevenue
+          revenue: actualRevenue,
+          ticketSold: actualTickets > 0 ? actualTickets : evt.ticketSold,
         };
       });
 

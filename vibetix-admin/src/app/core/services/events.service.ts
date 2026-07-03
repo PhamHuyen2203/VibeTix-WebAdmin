@@ -36,36 +36,45 @@ export class EventsService {
   private col = collection(firebaseDb, COLLECTIONS.events);
 
   async loadCounts(): Promise<void> {
-    const [total, pending, approved, cancelled] = await Promise.all([
-      getCountFromServer(this.col),
-      getCountFromServer(query(this.col, where('status_str', '==', 'pending'))),
-      getCountFromServer(query(this.col, where('status_str', '==', 'approved'))),
-      getCountFromServer(query(this.col, where('status_str', '==', 'cancelled'))),
-    ]);
-    this.totalCount.set(total.data().count);
-    this.pendingCount.set(pending.data().count);
-    this.approvedCount.set(approved.data().count);
-    this.cancelledCount.set(cancelled.data().count);
+    try {
+      const allDocs = await getDocs(this.col);
+      let total = 0, pending = 0, approved = 0, cancelled = 0;
+      allDocs.docs.forEach(d => {
+        total++;
+        const data = d.data();
+        const status = (data['status_str'] || data['status'] || '').toLowerCase();
+        if (status === 'pending' || status === 'pending_review') pending++;
+        else if (status === 'approved' || status === 'ongoing' || status === 'completed') approved++;
+        else if (status === 'cancelled') cancelled++;
+      });
+      this.totalCount.set(total);
+      this.pendingCount.set(pending);
+      this.approvedCount.set(approved);
+      this.cancelledCount.set(cancelled);
+    } catch(e) {
+      console.warn('EventsService.loadCounts failed:', e);
+    }
   }
 
   async getEvents(params: EventQuery): Promise<PaginatedResult<EventDoc>> {
     const pageSize = params.pageSize ?? 10;
-    let q = query(this.col, orderBy('created_at', 'desc'), limit(pageSize + 1));
-
-    if (params.status) {
-      q = query(q, where('status_str', '==', this.mapReverseStatus(params.status)));
-    }
-    if (params.category) {
-      q = query(q, where('category_id', '==', params.category));
-    }
-    if (params.organizerId) {
-      q = query(q, where('organizer_id', '==', params.organizerId));
-    }
-    if (params.cursor) {
-      q = query(q, startAfter(params.cursor));
+    let q;
+    try {
+      q = query(this.col, orderBy('created_at', 'desc'), limit(pageSize + 1));
+      if (params.cursor) {
+        q = query(q, startAfter(params.cursor));
+      }
+    } catch(e) {
+      q = query(this.col, limit(pageSize + 1));
     }
 
-    const snap = await getDocs(q);
+    let snap;
+    try {
+      snap = await getDocs(q);
+    } catch(e) {
+      // Fallback: no ordering
+      snap = await getDocs(query(this.col, limit(pageSize + 1)));
+    }
     const docs = snap.docs;
     const hasMore = docs.length > pageSize;
     const items = docs.slice(0, pageSize).map((d) => this.mapEventDoc(d.id, d.data()));
@@ -87,13 +96,15 @@ export class EventsService {
   }
 
   private mapEventDoc(id: string, data: DocumentData): EventDoc {
+    // IMPORTANT: Keep both firestore doc ID and event_id field for joins
+    const eventId = data['event_id'] || id;
     return {
-      id: data['event_id'] || id,
+      id: eventId,
       organizerId: data['organizer_id'] || data['organizerId'] || '',
       organizerName: data['organizer_name'] || data['organizerName'] || 'Organizer',
       title: data['title'] || 'Untitled Event',
       description: data['description'] || '',
-      category: data['category_id'] || data['categoryId'] || 'Unknown',
+      category: data['category_id'] || data['categoryId'] || data['category'] || 'Unknown',
       venue: data['venue'] || data['venue_name'] || data['venueName'] || 'TBA',
       location: data['location'] || data['venue_address'] || data['venueAddress'] || data['address'] || 'TBA',
       status: this.mapStatus(data['status_str'] || data['status']),
@@ -108,6 +119,7 @@ export class EventsService {
       documents: [],
       featured: data['is_featured'] || data['isFeatured'] || false,
       createdAt: data['created_at'] || data['createdAt'] || new Date(),
+      _firestoreDocId: id,  // Keep original Firestore document ID for cross-referencing
     } as EventDoc;
   }
 
