@@ -25,38 +25,38 @@ import { Timestamp } from 'firebase/firestore';
       </div>
 
       <!-- Filters & Actions -->
-      <div class="card mb-4" style="padding:16px;">
-        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
-          <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-            <input
-              type="text"
-              class="form-control"
-              placeholder="Search by User ID..."
-              [(ngModel)]="searchUserId"
-              style="width:240px; height:38px;"
-            />
-            <select
-              class="form-control"
-              [(ngModel)]="selectedStatus"
-              style="width:160px; height:38px;"
-            >
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="refunded">Refunded</option>
-            </select>
-            <button class="btn btn-primary" (click)="loadOrders()">Apply Filter</button>
-          </div>
+      <div class="filter-bar">
+        <div class="form-control-icon" style="flex:1;max-width:300px;position:relative;">
+          <span class="icon-left" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;color:var(--color-text-muted);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </span>
+          <input type="search" class="form-control input-search" style="padding-left:34px;height:36px;" placeholder="Search Order ID or User ID..." [(ngModel)]="searchUserId" (input)="applyFilters()" />
         </div>
+        <select class="form-control" style="width:150px;height:36px;" [(ngModel)]="selectedStatus" (change)="applyFilters()">
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="refunded">Refunded</option>
+        </select>
+        <div style="position:relative; display:flex; align-items:center; gap:8px;">
+          <span style="font-size:12px; color:var(--color-text-secondary); font-weight:500;">Min Amount:</span>
+          <input type="number" class="form-control" style="width:90px; height:36px; padding:6px 10px;" placeholder="0" [(ngModel)]="minAmount" (input)="applyFilters()" min="0" />
+        </div>
+        <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="sortBy" (change)="applyFilters()">
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="amount">Highest Amount</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" (click)="resetFilters()">Clear Filters</button>
       </div>
 
       <!-- Table Card -->
-      <div class="card">
+      <div class="card" style="padding:0;overflow:hidden;">
         @if (loading()) {
           <div style="padding:40px; text-align:center;" class="text-muted">Loading orders...</div>
         } @else {
-          <div class="table-container" style="border:none; border-radius:0; margin:0;">
+          <div class="table-container" style="border:none; border-radius:0; margin:0; box-shadow:none;">
             <table class="table">
               <thead>
                 <tr>
@@ -71,7 +71,7 @@ import { Timestamp } from 'firebase/firestore';
                 </tr>
               </thead>
               <tbody>
-                @for (order of orders(); track order.id) {
+                @for (order of paginatedOrders; track order.id) {
                   <tr>
                     <td><span class="order-id" style="font-family:monospace; font-size:13px;">{{ order.id }}</span></td>
                     <td><span class="text-muted" style="font-family:monospace; font-size:12px;">{{ order.customerId }}</span></td>
@@ -94,7 +94,7 @@ import { Timestamp } from 'firebase/firestore';
                     </td>
                   </tr>
                 }
-                @if (orders().length === 0) {
+                @if (filteredOrders().length === 0) {
                   <tr>
                     <td colspan="8" style="text-align:center; padding:48px; color:var(--color-text-muted);">
                       No orders found matching filters.
@@ -106,11 +106,24 @@ import { Timestamp } from 'firebase/firestore';
           </div>
 
           <!-- Pagination -->
-          @if (hasMore()) {
-            <div style="padding:16px; display:flex; justify-content:center; border-top:1px solid var(--color-border);">
-              <button class="btn btn-outline" (click)="loadMore()">Load More</button>
+          <div class="table-footer">
+            <div class="pagination">
+              <button class="pagination-btn" [disabled]="currentPage() === 1" (click)="prevPage()">‹</button>
+              @for (p of getPagesArray(); track p) {
+                <button class="pagination-btn" [class.active]="currentPage() === p" (click)="currentPage.set(p)">{{ p }}</button>
+              }
+              <button class="pagination-btn" [disabled]="currentPage() >= totalPages" (click)="nextPage()">›</button>
             </div>
-          }
+            <div class="rows-per-page">
+              Rows per page
+              <select class="form-control" style="width:70px;height:30px;font-size:12px;padding:2px 8px;" [(ngModel)]="pageSize" (change)="currentPage.set(1)">
+                <option [ngValue]="10">10</option>
+                <option [ngValue]="20">20</option>
+                <option [ngValue]="50">50</option>
+                <option [ngValue]="100">100</option>
+              </select>
+            </div>
+          </div>
         }
       </div>
     </div>
@@ -251,13 +264,53 @@ export class Orders implements OnInit {
   private ordersSvc = inject(OrdersService);
 
   orders = signal<OrderDoc[]>([]);
+  filteredOrders = signal<OrderDoc[]>([]);
   loading = signal(true);
-  hasMore = signal(false);
-  lastDoc: any = null;
+
+  // Pagination
+  currentPage = signal(1);
+  pageSize = signal(20);
 
   // Search & Filter
   searchUserId = '';
   selectedStatus: OrderStatus | '' = '';
+  minAmount: number | null = null;
+  sortBy = 'newest';
+
+  // Computed Pagination Properties
+  get paginatedOrders(): OrderDoc[] {
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredOrders().slice(start, start + this.pageSize());
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredOrders().length / this.pageSize()) || 1;
+  }
+
+  getPageStart(): number {
+    if (this.filteredOrders().length === 0) return 0;
+    return (this.currentPage() - 1) * this.pageSize() + 1;
+  }
+
+  getPageEnd(): number {
+    return Math.min(this.currentPage() * this.pageSize(), this.filteredOrders().length);
+  }
+
+  nextPage(): void {
+    if (this.currentPage() < this.totalPages) this.currentPage.update((p) => p + 1);
+  }
+
+  prevPage(): void {
+    if (this.currentPage() > 1) this.currentPage.update((p) => p - 1);
+  }
+
+  getPagesArray(): number[] {
+    const pages = [];
+    for (let i = 1; i <= this.totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
 
   // Modals
   refundModalOpen = signal(false);
@@ -269,24 +322,16 @@ export class Orders implements OnInit {
     this.loadOrders();
   }
 
-  async loadOrders(append = false): Promise<void> {
-    this.loading.set(!append);
+  async loadOrders(): Promise<void> {
+    this.loading.set(true);
     try {
       const query: OrderQuery = {
-        pageSize: 20,
-        status: this.selectedStatus || undefined,
-        userId: this.searchUserId.trim() || undefined,
-        cursor: append ? this.lastDoc : undefined,
+        pageSize: 1000,
       };
 
       const res = await this.ordersSvc.getOrders(query);
-      if (append) {
-        this.orders.update((prev) => [...prev, ...res.items]);
-      } else {
-        this.orders.set(res.items);
-      }
-      this.hasMore.set(res.hasMore);
-      this.lastDoc = res.lastDoc;
+      this.orders.set(res.items);
+      this.applyFilters();
     } catch (err) {
       console.error(err);
     } finally {
@@ -294,10 +339,43 @@ export class Orders implements OnInit {
     }
   }
 
-  loadMore(): void {
-    if (this.hasMore()) {
-      this.loadOrders(true);
+  applyFilters(): void {
+    let list = this.orders();
+
+    if (this.searchUserId.trim()) {
+      const term = this.searchUserId.toLowerCase().trim();
+      list = list.filter((o) => o.id.toLowerCase().includes(term) || o.customerId.toLowerCase().includes(term));
     }
+
+    if (this.selectedStatus) {
+      list = list.filter((o) => o.status === this.selectedStatus);
+    }
+
+    if (this.minAmount !== null && this.minAmount !== undefined && this.minAmount >= 0) {
+      list = list.filter((o) => (o.amount || 0) >= this.minAmount!);
+    }
+
+    // Sort
+    list.sort((a, b) => {
+      const dateA = a.createdAt instanceof Timestamp ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime();
+      const dateB = b.createdAt instanceof Timestamp ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime();
+      
+      if (this.sortBy === 'newest') return dateB - dateA;
+      if (this.sortBy === 'oldest') return dateA - dateB;
+      if (this.sortBy === 'amount') return (b.amount || 0) - (a.amount || 0);
+      return 0;
+    });
+
+    this.filteredOrders.set(list);
+    this.currentPage.set(1);
+  }
+
+  resetFilters(): void {
+    this.searchUserId = '';
+    this.selectedStatus = '';
+    this.minAmount = null;
+    this.sortBy = 'newest';
+    this.applyFilters();
   }
 
   viewDetails(order: OrderDoc): void {
@@ -325,6 +403,7 @@ export class Orders implements OnInit {
       this.orders.update((list) =>
         list.map((o) => (o.id === order.id ? { ...o, status: 'refunded' as const } : o))
       );
+      this.applyFilters();
       this.closeRefundModal();
     } catch (err) {
       alert('Error processing refund: ' + err);

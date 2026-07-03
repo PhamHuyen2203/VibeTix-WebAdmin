@@ -7,7 +7,9 @@ import { AdminFunctions } from '../../core/services/admin-functions';
 import { NotificationService } from '../../core/services/notification';
 import { EventDoc, EventStatus } from '../../core/models/event.model';
 import { OrganizerProfile } from '../../core/models/organizer.model';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, collection, getDocs } from 'firebase/firestore';
+import { firebaseDb } from '../../core/firebase/firebase.client';
+import { COLLECTIONS } from '../../core/firebase/collections';
 
 @Component({
   selector: 'app-events',
@@ -42,11 +44,15 @@ export class Events implements OnInit {
   searchTerm = '';
   filterStatus: EventStatus | '' = '';
   filterCategory = '';
-  filterOrganizer = '';
+  filterStartDate = '';
+  filterEndDate = '';
+  minRevenue: number | null = null;
   sortBy = 'newest';
 
+  Math = Math;
+
   // Dynamic filter choices loaded from dataset
-  uniqueCategories = signal<string[]>([]);
+  categoriesList = signal<{ id: string; name: string }[]>([]);
   organizersList = signal<OrganizerProfile[]>([]);
 
   // Pagination
@@ -99,6 +105,7 @@ export class Events implements OnInit {
     await Promise.all([
       this.eventSvc.loadCounts(),
       this.loadOrganizersList(),
+      this.loadCategoriesList(),
       this.loadEvents(),
     ]);
   }
@@ -112,18 +119,79 @@ export class Events implements OnInit {
     }
   }
 
+  async loadCategoriesList(): Promise<void> {
+    try {
+      const categoriesCol = collection(firebaseDb, COLLECTIONS.categories);
+      const snap = await getDocs(categoriesCol);
+      const cats = snap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: data['category_id'] || doc.id,
+          name: data['name'] || 'Other'
+        };
+      });
+      if (cats.length === 0) {
+        this.categoriesList.set([
+          { id: 'Concerts', name: 'Concerts' },
+          { id: 'Music Festivals', name: 'Music Festivals' },
+          { id: 'Sports', name: 'Sports' },
+          { id: 'Theatre', name: 'Theatre' },
+          { id: 'Comedy', name: 'Comedy' }
+        ]);
+      } else {
+        this.categoriesList.set(cats);
+      }
+    } catch (err) {
+      console.error('Failed to load categories list:', err);
+      this.categoriesList.set([
+        { id: 'Concerts', name: 'Concerts' },
+        { id: 'Music Festivals', name: 'Music Festivals' },
+        { id: 'Sports', name: 'Sports' },
+        { id: 'Theatre', name: 'Theatre' },
+        { id: 'Comedy', name: 'Comedy' }
+      ]);
+    }
+  }
+
   async loadEvents(): Promise<void> {
     this.loading.set(true);
     try {
-      const result = await this.eventSvc.getEvents({
-        pageSize: 1000, // load all for client paging & indexing prevention
+      const [result, ordersSnap] = await Promise.all([
+        this.eventSvc.getEvents({
+          pageSize: 1000, // load all for client paging & indexing prevention
+        }),
+        getDocs(collection(firebaseDb, COLLECTIONS.orders))
+      ]);
+
+      const eventRevenueMap: Record<string, number> = {};
+      ordersSnap.docs.forEach((d) => {
+        const data = d.data();
+        const status = (data['status'] || '').toLowerCase();
+        if (status !== 'completed') return;
+        const evId = data['event_id'] || data['eventId'] || '';
+        
+        // Sum up the unitPrice * quantity for each order_item in the order
+        let itemsSum = 0;
+        const items = data['items'] || data['order_items'] || [];
+        if (Array.isArray(items)) {
+          itemsSum = items.reduce((sum: number, item: any) => sum + ((item.quantity || 0) * (item.unitPrice || item.unit_price || item.price || 0)), 0);
+        }
+        const amount = itemsSum > 0 ? itemsSum : Number(data['total_amount'] || data['amount'] || 0);
+
+        if (evId) {
+          eventRevenueMap[evId] = (eventRevenueMap[evId] || 0) + amount;
+        }
       });
-      this.events.set(result.items);
 
-      // Extract unique categories
-      const cats = Array.from(new Set(result.items.map((e) => e.category).filter(Boolean)));
-      this.uniqueCategories.set(cats);
+      const updatedEvents = result.items.map((evt) => {
+        const actualRevenue = eventRevenueMap[evt.id] || 0;
+        return {
+          ...evt,
+          revenue: actualRevenue
+        };
+      });
 
+      this.events.set(updatedEvents);
       this.applyFilters();
     } finally {
       this.loading.set(false);
@@ -134,8 +202,11 @@ export class Events implements OnInit {
     const term = this.searchTerm.toLowerCase().trim();
     const status = this.filterStatus;
     const cat = this.filterCategory;
-    const org = this.filterOrganizer;
     const sort = this.sortBy;
+    const start = this.filterStartDate ? new Date(this.filterStartDate) : null;
+    if (start) start.setHours(0, 0, 0, 0);
+    const end = this.filterEndDate ? new Date(this.filterEndDate) : null;
+    if (end) end.setHours(23, 59, 59, 999);
 
     let list = this.events();
 
@@ -158,19 +229,30 @@ export class Events implements OnInit {
       list = list.filter((e) => e.category === cat);
     }
 
-    // 4. Organizer
-    if (org) {
-      list = list.filter((e) => e.organizerId === org);
+    // 4. Time
+    if (start || end) {
+      list = list.filter((e) => {
+        if (!e.date) return false;
+        const eDate = e.date instanceof Timestamp ? e.date.toDate() : new Date(e.date);
+        if (start && eDate < start) return false;
+        if (end && eDate > end) return false;
+        return true;
+      });
     }
 
-    // 5. Sort
+    // 5. Min Revenue
+    if (this.minRevenue !== null && this.minRevenue !== undefined && this.minRevenue >= 0) {
+      list = list.filter((e) => (e.revenue || 0) >= this.minRevenue!);
+    }
+
+    // 6. Sort
     list.sort((a, b) => {
       const dateA = a.createdAt instanceof Timestamp ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime();
       const dateB = b.createdAt instanceof Timestamp ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime();
       if (sort === 'newest') return dateB - dateA;
       if (sort === 'oldest') return dateA - dateB;
       if (sort === 'tickets') return b.totalTickets - a.totalTickets;
-      if (sort === 'sales') return b.ticketSold - a.ticketSold;
+      if (sort === 'sales') return (b.ticketSold || 0) - (a.ticketSold || 0);
       return 0;
     });
 
@@ -220,7 +302,9 @@ export class Events implements OnInit {
     this.searchTerm = '';
     this.filterStatus = '';
     this.filterCategory = '';
-    this.filterOrganizer = '';
+    this.filterStartDate = '';
+    this.filterEndDate = '';
+    this.minRevenue = null;
     this.sortBy = 'newest';
     this.applyFilters();
   }
@@ -496,5 +580,23 @@ export class Events implements OnInit {
   ticketProgress(event: EventDoc): number {
     if (!event.totalTickets) return 0;
     return Math.round((event.ticketSold / event.totalTickets) * 100);
+  }
+
+  getCategoryName(categoryId: string): string {
+    if (!categoryId) return '';
+    const id = categoryId.toLowerCase();
+    const cat = this.categoriesList().find(c => c.id.toLowerCase() === id || c.name.toLowerCase() === id);
+    return cat ? cat.name : categoryId;
+  }
+
+  getCategoryClass(categoryNameOrId: string): string {
+    const cat = (categoryNameOrId || '').toLowerCase().trim();
+    if (cat.includes('concert')) return 'badge-concerts';
+    if (cat.includes('music') || cat.includes('festival')) return 'badge-music';
+    if (cat.includes('sport')) return 'badge-sports';
+    if (cat.includes('theat') || cat.includes('play')) return 'badge-theater';
+    if (cat.includes('comedy')) return 'badge-comedy';
+    if (cat.includes('cultur') || cat.includes('art')) return 'badge-culture';
+    return 'badge-primary';
   }
 }

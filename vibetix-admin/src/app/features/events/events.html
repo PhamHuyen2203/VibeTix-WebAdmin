@@ -33,7 +33,21 @@
 
   <!-- Filters -->
   <div class="filter-bar">
-    <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="filterStatus" (change)="loadEvents()" id="evt-filter-status">
+    <div class="form-control-icon" style="flex:1;max-width:250px;position:relative;">
+      <span class="icon-left" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;color:var(--color-text-muted);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </span>
+      <input
+        type="search"
+        class="form-control input-search"
+        style="padding-left:34px;height:36px;"
+        placeholder="Search events..."
+        id="evt-search"
+        [(ngModel)]="searchTerm"
+        (input)="applyFilters()"
+      />
+    </div>
+    <select class="form-control" style="width:140px;height:36px;" [(ngModel)]="filterStatus" (change)="applyFilters()" id="evt-filter-status">
       <option value="">All Statuses</option>
       <option value="pending_review">Pending Review</option>
       <option value="approved">Approved</option>
@@ -41,23 +55,34 @@
       <option value="cancelled">Cancelled</option>
       <option value="featured">Featured</option>
     </select>
-    <select class="form-control" style="width:150px;height:36px;" [(ngModel)]="filterCategory" (change)="loadEvents()" id="evt-filter-category">
+    <select class="form-control" style="width:150px;height:36px;" [(ngModel)]="filterCategory" (change)="applyFilters()" id="evt-filter-category">
       <option value="">All Categories</option>
-      <option value="Concerts">Concerts</option>
-      <option value="Music Festivals">Music Festivals</option>
-      <option value="Sports">Sports</option>
-      <option value="Theatre">Theatre</option>
-      <option value="Comedy">Comedy</option>
+      @for (cat of categoriesList(); track cat.id) {
+        <option [value]="cat.id">{{ cat.name }}</option>
+      }
     </select>
-    <select class="form-control" style="width:160px;height:36px;" id="evt-filter-organizer">
-      <option value="">All Organizers</option>
-    </select>
-    <div style="display:flex;align-items:center;gap:6px;border:1px solid var(--border-color);border-radius:8px;padding:0 10px;height:36px;font-size:12px;background:white;min-width:200px;">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-      May 1 – May 31, 2025
+    <div style="position:relative; display:flex; align-items:center; gap:8px;">
+      <span style="font-size:12px; color:var(--color-text-secondary); font-weight:500;">Min Revenue:</span>
+      <input
+        type="number"
+        class="form-control"
+        style="width:90px; height:36px; padding:6px 10px;"
+        placeholder="0"
+        [(ngModel)]="minRevenue"
+        (input)="applyFilters()"
+        min="0"
+      />
     </div>
-    <button class="btn btn-ghost btn-sm" (click)="filterStatus='';filterCategory='';loadEvents()">Clear Filters</button>
-    <button class="btn btn-primary btn-sm" style="margin-left:auto;">
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);font-weight:500;">
+      <span>From:</span>
+      <input type="date" class="form-control" style="width:130px;height:36px;padding:6px 10px;" [(ngModel)]="filterStartDate" (change)="applyFilters()" />
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);font-weight:500;">
+      <span>To:</span>
+      <input type="date" class="form-control" style="width:130px;height:36px;padding:6px 10px;" [(ngModel)]="filterEndDate" (change)="applyFilters()" />
+    </div>
+    <button class="btn btn-ghost btn-sm" (click)="resetFilters()">Clear Filters</button>
+    <button class="btn btn-primary btn-sm" style="margin-left:auto;" (click)="openAddModal()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
       Add Event
     </button>
@@ -69,9 +94,8 @@
       <table class="table">
         <thead>
           <tr>
-            <th style="width:32px;"><input type="checkbox" /></th>
+            <th style="width:32px;"><input type="checkbox" [checked]="isAllSelected()" (change)="toggleSelectAll()" /></th>
             <th>Event Name</th>
-            <th>Organizer</th>
             <th>Category</th>
             <th>Venue</th>
             <th>Date</th>
@@ -85,15 +109,17 @@
           @if (loading()) {
             @for (i of [1,2,3,4,5,6,7,8,9,10]; track i) {
               <tr>
-                @for (j of [1,2,3,4,5,6,7,8,9,10]; track j) {
+                @for (j of [1,2,3,4,5,6,7,8,9]; track j) {
                   <td><div class="skeleton" style="height:14px;width:80%;border-radius:4px;"></div></td>
                 }
               </tr>
             }
           } @else {
-            @for (event of events(); track event.id) {
+            @for (event of paginatedEvents(); track event.id) {
               <tr (click)="selectEvent(event)" [class.selected]="selectedEvent()?.id === event.id" style="cursor:pointer;">
-                <td><input type="checkbox" (click)="$event.stopPropagation()" /></td>
+                <td>
+                  <input type="checkbox" [checked]="selectedEventIds().has(event.id)" (click)="$event.stopPropagation()" (change)="toggleSelectEvent(event.id)" />
+                </td>
                 <td>
                   <div class="flex items-center gap-2">
                     <div class="event-thumb" style="background:var(--gradient-brand);">
@@ -105,13 +131,7 @@
                     </div>
                   </div>
                 </td>
-                <td>
-                  <div class="flex items-center gap-2">
-                    <div class="avatar avatar-sm avatar-placeholder" style="border-radius:8px;">{{ event.organizerName?.[0] ?? '?' }}</div>
-                    <span class="text-sm font-medium">{{ event.organizerName }}</span>
-                  </div>
-                </td>
-                <td><span class="badge badge-primary">{{ event.category }}</span></td>
+                <td><span class="badge" [class]="getCategoryClass(getCategoryName(event.category))">{{ getCategoryName(event.category) }}</span></td>
                 <td>
                   <p class="text-sm">{{ event.venue }}</p>
                   <p class="text-xs text-muted">{{ event.location }}</p>
@@ -127,28 +147,38 @@
                 <td class="font-semibold text-sm">${{ event.revenue.toLocaleString() }}</td>
                 <td><span class="badge" [class]="getStatusClass(event.status)">{{ getStatusLabel(event.status) }}</span></td>
                 <td>
-                  <div class="flex gap-1">
-                    <button class="btn-icon" aria-label="View" (click)="$event.stopPropagation()">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    </button>
-                    <button class="btn-icon" aria-label="More" (click)="$event.stopPropagation()">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-                    </button>
+                  <div class="action-row" (click)="$event.stopPropagation()">
+                    <button class="btn btn-ghost btn-sm" title="View" (click)="selectEvent(event)">View</button>
+                    <button class="btn btn-ghost btn-sm" title="Edit" (click)="openEditModal(event)">Edit</button>
+                    <button class="btn btn-ghost btn-sm text-error" [disabled]="actionLoading() === event.id + '_delete'" (click)="deleteEvent(event)" title="Delete Event">Delete</button>
                   </div>
                 </td>
               </tr>
             }
-            @if (events().length === 0) {
-              <tr><td colspan="10" style="text-align:center;padding:40px;color:var(--color-text-muted);">No events found.</td></tr>
+            @if (paginatedEvents().length === 0) {
+              <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--color-text-muted);">No events found.</td></tr>
             }
           }
         </tbody>
       </table>
     </div>
-    <div style="padding:12px 20px;border-top:1px solid var(--border-color);font-size:12px;color:var(--color-text-muted);">
-      Showing 1 to {{ events().length }} of {{ totalCount().toLocaleString() }} events
-      <span style="margin:0 12px;color:var(--border-color);">|</span>
-      10 / page
+    <!-- Pagination -->
+    <div class="table-footer">
+      <div class="pagination">
+        <button class="pagination-btn" [disabled]="currentPage() === 1" (click)="changePage(currentPage() - 1)">‹</button>
+        @for (p of getPagesArray(); track p) {
+          <button class="pagination-btn" [class.active]="currentPage() === p" (click)="changePage(p)">{{ p }}</button>
+        }
+        <button class="pagination-btn" [disabled]="currentPage() === totalPages()" (click)="changePage(currentPage() + 1)">›</button>
+      </div>
+      <div class="rows-per-page">
+        Rows per page
+        <select class="form-control" style="width:70px;height:30px;font-size:12px;padding:2px 8px;" [ngModel]="pageSize()" (change)="changePageSize(+$any($event.target).value)">
+          <option [value]="20">20</option>
+          <option [value]="50">50</option>
+          <option [value]="100">100</option>
+        </select>
+      </div>
     </div>
   </div>
 </div>
@@ -195,7 +225,7 @@
     @if (selectedEvent()!.description) {
       <div class="panel-section">
         <h5 class="panel-section-title">About Event</h5>
-        <p class="text-sm text-muted" style="line-height:1.6;">{{ selectedEvent()!.description }}</p>
+        <div class="text-sm text-muted" style="line-height:1.6;" [innerHTML]="selectedEvent()!.description"></div>
       </div>
     }
 
@@ -298,6 +328,152 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="showCancelModal.set(false)">Cancel</button>
         <button class="btn btn-danger" [disabled]="!actionReason() || actionLoading() === 'cancel'" (click)="confirmCancel()">Confirm Cancellation</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Add Event Modal -->
+@if (addModalOpen()) {
+  <div class="modal-overlay" (click)="addModalOpen.set(false)">
+    <div class="modal" style="max-width:540px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">Add New Event</h3>
+        <button class="btn-icon" (click)="addModalOpen.set(false)">×</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:12px; max-height: 70vh; overflow-y: auto; padding-right: 6px;">
+        <div class="form-group">
+          <label class="form-label">Event Title *</label>
+          <input type="text" class="form-control" placeholder="E.g. Summer Music Festival" [(ngModel)]="newEvent.title" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-control" rows="3" placeholder="Brief event description (HTML allowed)..." [(ngModel)]="newEvent.description"></textarea>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Organizer *</label>
+            <select class="form-control" [(ngModel)]="newEvent.organizerId">
+              @for (org of organizersList(); track org.id) {
+                <option [value]="org.id">{{ org.businessName }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category *</label>
+            <select class="form-control" [(ngModel)]="newEvent.categoryId">
+              @for (cat of categoriesList(); track cat.id) {
+                <option [value]="cat.id">{{ cat.name }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Venue Name</label>
+            <input type="text" class="form-control" placeholder="E.g. National Stadium" [(ngModel)]="newEvent.venueName" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Venue Address</label>
+            <input type="text" class="form-control" placeholder="E.g. 123 Main St, Hanoi" [(ngModel)]="newEvent.venueAddress" />
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Start Time</label>
+            <input type="datetime-local" class="form-control" [(ngModel)]="newEvent.startTime" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">End Time</label>
+            <input type="datetime-local" class="form-control" [(ngModel)]="newEvent.endTime" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total Tickets</label>
+          <input type="number" class="form-control" [(ngModel)]="newEvent.totalTickets" min="1" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="addModalOpen.set(false)">Cancel</button>
+        <button class="btn btn-primary" [disabled]="loading()" (click)="saveNewEvent()">Create Event</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Edit Event Modal -->
+@if (editModalOpen()) {
+  <div class="modal-overlay" (click)="editModalOpen.set(false)">
+    <div class="modal" style="max-width:540px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Event Details</h3>
+        <button class="btn-icon" (click)="editModalOpen.set(false)">×</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:12px; max-height: 70vh; overflow-y: auto; padding-right: 6px;">
+        <div class="form-group">
+          <label class="form-label">Event Title *</label>
+          <input type="text" class="form-control" [(ngModel)]="editForm.title" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-control" rows="3" [(ngModel)]="editForm.description"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category *</label>
+          <select class="form-control" [(ngModel)]="editForm.categoryId">
+            @for (cat of categoriesList(); track cat.id) {
+              <option [value]="cat.id">{{ cat.name }}</option>
+            }
+          </select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Venue Name</label>
+            <input type="text" class="form-control" [(ngModel)]="editForm.venueName" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Venue Address</label>
+            <input type="text" class="form-control" [(ngModel)]="editForm.venueAddress" />
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Start Time</label>
+            <input type="datetime-local" class="form-control" [(ngModel)]="editForm.startTime" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">End Time</label>
+            <input type="datetime-local" class="form-control" [(ngModel)]="editForm.endTime" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total Tickets</label>
+          <input type="number" class="form-control" [(ngModel)]="editForm.totalTickets" min="1" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="editModalOpen.set(false)">Cancel</button>
+        <button class="btn btn-primary" [disabled]="loading()" (click)="saveEditEvent()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Delete Event Confirm Modal -->
+@if (showDeleteConfirmModal()) {
+  <div class="modal-overlay" (click)="showDeleteConfirmModal.set(false)">
+    <div class="modal" style="max-width:400px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h4 class="modal-title">Confirm Delete Event</h4>
+        <button class="btn-icon" (click)="showDeleteConfirmModal.set(false)">×</button>
+      </div>
+      <div class="modal-body" style="padding-top:10px;">
+        <p>Are you sure you want to permanently delete event <strong>{{ eventToDelete()?.title }}</strong>?</p>
+        <p class="text-xs text-muted" style="margin-top:10px;">This will permanently delete the event document. This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:end; gap:8px;">
+        <button class="btn btn-ghost" (click)="showDeleteConfirmModal.set(false)">Cancel</button>
+        <button class="btn btn-danger" (click)="confirmDeleteEvent()">Delete Permanently</button>
       </div>
     </div>
   </div>
