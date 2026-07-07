@@ -64,7 +64,6 @@ export class Events implements OnInit {
   selectedEventIds = signal<Set<string>>(new Set());
 
   // Modals
-  addModalOpen = signal(false);
   editModalOpen = signal(false);
   showRejectModal = signal(false);
   showCancelModal = signal(false);
@@ -74,17 +73,6 @@ export class Events implements OnInit {
   actionReason = signal('');
 
   // Form states
-  newEvent = {
-    title: '',
-    description: '',
-    organizerId: '',
-    categoryId: 'Concerts',
-    venueName: '',
-    venueAddress: '',
-    startTime: '',
-    endTime: '',
-    totalTickets: 100,
-  };
 
   editForm = {
     title: '',
@@ -358,55 +346,6 @@ export class Events implements OnInit {
     this.selectedEvent.set(null);
   }
 
-  // Create Event
-  openAddModal(): void {
-    const defaultOrg = this.organizersList()[0]?.id || '';
-    this.newEvent = {
-      title: '',
-      description: '',
-      organizerId: defaultOrg,
-      categoryId: 'Concerts',
-      venueName: '',
-      venueAddress: '',
-      startTime: '',
-      endTime: '',
-      totalTickets: 100,
-    };
-    this.addModalOpen.set(true);
-  }
-
-  async saveNewEvent(): Promise<void> {
-    if (!this.newEvent.title || !this.newEvent.organizerId) {
-      this.notif.error('Event Title and Organizer are required.');
-      return;
-    }
-
-    const org = this.organizersList().find((o) => o.id === this.newEvent.organizerId);
-    const organizerName = org ? org.businessName : 'Organizer';
-
-    this.loading.set(true);
-    try {
-      await this.adminFns.createEvent({
-        title: this.newEvent.title,
-        description: this.newEvent.description,
-        organizerId: this.newEvent.organizerId,
-        organizerName,
-        categoryId: this.newEvent.categoryId,
-        venueName: this.newEvent.venueName || undefined,
-        venueAddress: this.newEvent.venueAddress || undefined,
-        startTime: this.newEvent.startTime || undefined,
-        endTime: this.newEvent.endTime || undefined,
-        totalTickets: Number(this.newEvent.totalTickets || 100),
-      });
-      this.addModalOpen.set(false);
-      this.notif.success('Event created successfully.');
-      await this.refreshAll();
-    } catch (err: any) {
-      this.notif.error('Failed to create event: ' + (err.message || err));
-    } finally {
-      this.loading.set(false);
-    }
-  }
 
   // Edit Event
   openEditModal(event: EventDoc): void {

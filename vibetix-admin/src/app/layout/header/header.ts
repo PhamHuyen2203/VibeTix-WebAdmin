@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal, ViewChild, ElementRef } from '@angul
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
-import { collection, query, orderBy, limit, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, doc, updateDoc, writeBatch, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from '../../core/firebase/firebase.client';
 import { COLLECTIONS } from '../../core/firebase/collections';
@@ -60,9 +60,25 @@ export class Header implements OnInit {
   async loadNotifications(): Promise<void> {
     try {
       const col = collection(firebaseDb, 'notifications');
-      const q = query(col, orderBy('created_at', 'desc'), limit(20));
-      const snap = await getDocs(q);
-      const items: DbNotification[] = snap.docs.map((d) => {
+      const adminId = this.adminProfile()?.uid || 'admin';
+      
+      let snap;
+      try {
+        // First try standard indexed query for this admin or general admin
+        const q = query(col, where('admin_id', 'in', [adminId, 'all_admins', 'admin']), orderBy('created_at', 'desc'), limit(20));
+        snap = await getDocs(q);
+      } catch (err) {
+        // Fallback: If index is missing, fetch recent 200 documents and filter in memory
+        const fallbackQ = query(col, orderBy('created_at', 'desc'), limit(200));
+        const fallbackSnap = await getDocs(fallbackQ);
+        const filtered = fallbackSnap.docs.filter(d => {
+          const data = d.data();
+          return data['admin_id'] !== undefined && data['admin_id'] !== null && data['admin_id'] !== '';
+        }).slice(0, 20);
+        snap = { docs: filtered } as any;
+      }
+
+      const items: DbNotification[] = snap.docs.map((d: any) => {
         const data = d.data();
         return {
           id: d.id,
@@ -106,6 +122,23 @@ export class Header implements OnInit {
       this.unreadCount.update((c) => Math.max(0, c - 1));
     } catch (err) {
       console.error('Failed to mark read:', err);
+    }
+  }
+
+  async handleNotificationClick(notif: DbNotification): Promise<void> {
+    await this.markAsRead(notif);
+    this.closeNotifDropdown();
+    
+    // Simple routing based on keywords
+    const title = notif.title.toLowerCase();
+    const body = notif.body.toLowerCase();
+    
+    if (title.includes('event') || title.includes('sự kiện') || body.includes('sự kiện') || body.includes('event')) {
+      this.router.navigate(['/events']);
+    } else if (title.includes('organizer') || title.includes('tổ chức') || body.includes('organizer') || body.includes('tổ chức')) {
+      this.router.navigate(['/organizers']);
+    } else if (title.includes('order') || title.includes('đơn hàng') || body.includes('đơn hàng')) {
+      this.router.navigate(['/orders']);
     }
   }
 

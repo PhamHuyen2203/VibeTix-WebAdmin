@@ -196,27 +196,55 @@ export class DashboardService {
       snap = await getDocs(query(collection(firebaseDb, COLLECTIONS.orders), limit(5)));
     }
 
+    // Fetch order_items to resolve event_id for each order
+    let orderItemsDocs: any[] = [];
+    try {
+      const orderItemsSnap = await getDocs(collection(firebaseDb, 'order_items'));
+      orderItemsDocs = orderItemsSnap.docs;
+    } catch (e) {
+      console.warn('Failed to fetch order_items:', e);
+    }
+
+    // Build map: order_id → event_id (from order_items)
+    const orderToEventMap: Record<string, string> = {};
+    orderItemsDocs.forEach(d => {
+      const item = d.data();
+      const orderId = item['order_id'] || '';
+      const eventId = item['event_id'] || '';
+      if (orderId && eventId) {
+        orderToEventMap[orderId] = eventId;
+      }
+    });
+
     let orders = await Promise.all(
       snap.docs.map(async (d) => {
         const data = d.data();
         let customerName = data['customerName'] || 'Unknown Customer';
-        let eventName = data['eventName'] || 'Unknown Event';
+        let eventName = 'Unknown Event';
 
-        // Attempt to fetch actual names if IDs exist
+        // Attempt to fetch customer name
         const customerId = data['customerId'] || data['user_id'];
         if (customerId) {
-          const userDoc = await getDoc(doc(firebaseDb, COLLECTIONS.users, customerId));
-          if (userDoc.exists()) {
-            customerName = userDoc.data()?.['full_name'] || userDoc.data()?.['displayName'] || customerName;
-          }
+          try {
+            const userDoc = await getDoc(doc(firebaseDb, COLLECTIONS.users, customerId));
+            if (userDoc.exists()) {
+              customerName = userDoc.data()?.['full_name'] || userDoc.data()?.['displayName'] || customerName;
+            }
+          } catch {}
         }
 
-        const eventId = data['eventId'] || data['event_id'];
+        // Resolve event_id: first from order doc, then from order_items
+        const orderId = data['order_id'] || d.id;
+        let eventId = data['eventId'] || data['event_id'] || orderToEventMap[orderId] || orderToEventMap[d.id] || '';
+
+        // Lookup event title from event_id
         if (eventId) {
-          const eventDoc = await getDoc(doc(firebaseDb, COLLECTIONS.events, eventId));
-          if (eventDoc.exists()) {
-            eventName = eventDoc.data()?.['title'] || eventName;
-          }
+          try {
+            const eventDoc = await getDoc(doc(firebaseDb, COLLECTIONS.events, eventId));
+            if (eventDoc.exists()) {
+              eventName = eventDoc.data()?.['title'] || eventName;
+            }
+          } catch {}
         }
 
         return {
@@ -226,22 +254,13 @@ export class DashboardService {
           eventId: eventId || '',
           eventName,
           items: data['items'] || [],
-          totalTickets: data['totalTickets'] || 2,
-          amount: data['amount'] || data['total_amount'] || 150000,
+          totalTickets: data['totalTickets'] || data['total_tickets'] || 0,
+          amount: data['amount'] || data['total_amount'] || 0,
           status: data['status'] || 'pending',
-          createdAt: data['createdAt'] || data['order_date'] || new Date(),
+          createdAt: data['createdAt'] || data['created_at'] || data['order_date'] || new Date(),
         } as unknown as OrderDoc;
       })
     );
-    
-    // If empty, mock pending orders so it shows something
-    if (orders.length === 0) {
-      orders = [
-        { id: 'ORD-8942A', customerName: 'Alex Johnson', customerEmail: 'alex@example.com', eventName: 'Summer Music Fest', totalTickets: 2, amount: 250000, status: 'pending', createdAt: new Date() } as any,
-        { id: 'ORD-1029B', customerName: 'Maria Garcia', customerEmail: 'maria@example.com', eventName: 'Tech Conference 2026', totalTickets: 1, amount: 120000, status: 'pending', createdAt: new Date() } as any,
-        { id: 'ORD-4482C', customerName: 'David Smith', customerEmail: 'david@example.com', eventName: 'Standup Comedy Night', totalTickets: 4, amount: 180000, status: 'pending', createdAt: new Date() } as any,
-      ];
-    }
     
     this.recentOrders.set(orders);
   }
@@ -301,18 +320,64 @@ export class DashboardService {
 
   private async loadTopEvents(): Promise<void> {
     try {
-      const snap = await getDocs(query(collection(firebaseDb, COLLECTIONS.events), limit(5)));
-      this.topEvents.set(snap.docs.map(d => {
+      // Fetch events and organizers in parallel
+      const [eventsSnap, orgsSnap, orderItemsSnap, ordersSnap] = await Promise.all([
+        getDocs(collection(firebaseDb, COLLECTIONS.events)),
+        getDocs(collection(firebaseDb, COLLECTIONS.organizers)),
+        getDocs(collection(firebaseDb, 'order_items')),
+        getDocs(query(collection(firebaseDb, COLLECTIONS.orders), where('status', '==', 'completed'), limit(500))),
+      ]);
+
+      // Build organizer_id → name map
+      const organizerMap: Record<string, string> = {};
+      orgsSnap.docs.forEach(d => {
         const data = d.data();
+        const orgId = data['organizer_id'] || d.id;
+        const name = data['brand_name'] || data['brandName'] || data['name'] || data['businessName'] || 'Unknown';
+        organizerMap[orgId] = name;
+        organizerMap[d.id] = name;
+      });
+
+      // Build order status map
+      const completedOrderIds = new Set<string>();
+      ordersSnap.docs.forEach(d => {
+        const data = d.data();
+        completedOrderIds.add(data['order_id'] || d.id);
+        completedOrderIds.add(d.id);
+      });
+
+      // Calculate revenue per event from order_items
+      const eventRevenueMap: Record<string, number> = {};
+      const eventTicketsMap: Record<string, number> = {};
+      orderItemsSnap.docs.forEach(d => {
+        const item = d.data();
+        const orderId = item['order_id'] || '';
+        if (!completedOrderIds.has(orderId)) return;
+        const evId = item['event_id'] || '';
+        if (!evId) return;
+        const qty = Number(item['quantity'] || 1);
+        const price = Number(item['price_per_ticket'] || 0);
+        eventRevenueMap[evId] = (eventRevenueMap[evId] || 0) + (qty * price);
+        eventTicketsMap[evId] = (eventTicketsMap[evId] || 0) + qty;
+      });
+
+      const events = eventsSnap.docs.map(d => {
+        const data = d.data();
+        const eventId = data['event_id'] || d.id;
+        const organizerId = data['organizer_id'] || data['organizerId'] || '';
         return {
-          id: d.id,
+          id: eventId,
           title: data['title'] || 'Unnamed Event',
-          revenue: data['revenue'] || Math.floor(Math.random() * 50000),
-          ticketsSold: data['ticketSold'] || data['ticketsSold'] || Math.floor(Math.random() * 500),
-          organizerName: data['organizerName'] || 'Unknown'
+          revenue: eventRevenueMap[eventId] || eventRevenueMap[d.id] || 0,
+          ticketsSold: eventTicketsMap[eventId] || eventTicketsMap[d.id] || data['tickets_sold'] || 0,
+          organizerName: organizerMap[organizerId] || data['organizer_name'] || 'Unknown'
         };
-      }).sort((a,b) => b.revenue - a.revenue));
-    } catch(e) {}
+      }).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+      this.topEvents.set(events);
+    } catch(e) {
+      console.warn('loadTopEvents failed:', e);
+    }
   }
 
   private async loadTopOrganizers(): Promise<void> {

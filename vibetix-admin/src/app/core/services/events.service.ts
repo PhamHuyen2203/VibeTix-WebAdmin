@@ -119,6 +119,8 @@ export class EventsService {
       documents: [],
       featured: data['is_featured'] || data['isFeatured'] || false,
       createdAt: data['created_at'] || data['createdAt'] || new Date(),
+      rejectionReason: data['rejectionReason'] || data['rejection_reason'] || '',
+      cancellationReason: data['cancellationReason'] || data['cancellation_reason'] || '',
       _firestoreDocId: id,  // Keep original Firestore document ID for cross-referencing
     } as EventDoc;
   }
