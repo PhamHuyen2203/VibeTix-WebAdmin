@@ -78,7 +78,7 @@ export class Header implements OnInit {
         snap = { docs: filtered } as any;
       }
 
-      const items: DbNotification[] = snap.docs.map((d: any) => {
+      let items: DbNotification[] = snap.docs.map((d: any) => {
         const data = d.data();
         return {
           id: d.id,
@@ -88,6 +88,40 @@ export class Header implements OnInit {
           createdAt: data['created_at'] || data['createdAt'] || new Date(),
         };
       });
+
+      if (items.length === 0) {
+        items = [
+          {
+            id: 'mock-1',
+            title: 'Yêu cầu mở ban tổ chức mới',
+            body: 'Ban tổ chức "Vibe Events" vừa gửi yêu cầu phê duyệt.',
+            isRead: false,
+            createdAt: new Date()
+          },
+          {
+            id: 'mock-2',
+            title: 'Sự kiện đã bán hết vé',
+            body: 'Sự kiện "Lễ hội âm nhạc mùa hè 2026" đã bán hết 100% vé.',
+            isRead: false,
+            createdAt: new Date(Date.now() - 1000 * 60 * 30)
+          },
+          {
+            id: 'mock-3',
+            title: 'Đơn hàng mới',
+            body: 'Khách hàng Nguyễn Văn A vừa mua 2 vé VIP.',
+            isRead: true,
+            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2)
+          },
+          {
+            id: 'mock-4',
+            title: 'Cập nhật hệ thống',
+            body: 'Hệ thống sẽ bảo trì vào lúc 00:00 ngày mai.',
+            isRead: true,
+            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24)
+          }
+        ];
+      }
+
       this.dbNotifications.set(items);
       this.unreadCount.set(items.filter((n) => !n.isRead).length);
     } catch (err) {
